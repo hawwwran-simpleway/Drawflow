@@ -241,6 +241,20 @@ export default class Drawflow {
         }
         this.drawConnection(e.target);
         break;
+	  case 'input':
+		this.connection = true;
+		if(this.node_selected != null) {
+			this.node_selected.classList.remove("selected");
+			this.node_selected = null;
+			this.dispatch('nodeUnselected', true);
+		}
+		if(this.connection_selected != null) {
+			this.connection_selected.classList.remove("selected");
+			this.removeReouteConnectionSelected();
+			this.connection_selected = null;
+		}
+		this.drawConnection(e.target);
+		break;
       case 'parent-drawflow':
         if(this.node_selected != null) {
           this.node_selected.classList.remove("selected");
@@ -448,66 +462,92 @@ export default class Drawflow {
       this.editor_selected = false;
     }
     if(this.connection === true) {
-      if(ele_last.classList[0] === 'input' || (this.force_first_input && (ele_last.closest(".drawflow_content_node") != null || ele_last.classList[0] === 'drawflow-node'))) {
+		const targetIsOutput = ele_last.classList[0] === 'output';
+		const targetIsInput = ele_last.classList[0] === 'input';
+		const sourceIsInput = this.ele_selected.classList.contains('input');
 
-        if(this.force_first_input && (ele_last.closest(".drawflow_content_node") != null || ele_last.classList[0] === 'drawflow-node')) {
-          if(ele_last.closest(".drawflow_content_node") != null) {
-            var input_id = ele_last.closest(".drawflow_content_node").parentElement.id;
-          } else {
-            var input_id = ele_last.id;
-          }
-         if(Object.keys(this.getNodeFromId(input_id.slice(5)).inputs).length === 0) {
-           var input_class = false;
-         } else {
-          var input_class = "input_1";
+		if(targetIsInput || targetIsOutput || ele_last.closest(".drawflow_content_node") != null || ele_last.classList[0] === 'drawflow-node') {
+			let input_id, input_class, output_id, output_class;
+
+			if(sourceIsInput && targetIsOutput) {
+				// Input to Output connection
+				input_id = this.ele_selected.parentElement.parentElement.id;
+				input_class = this.ele_selected.classList[1];
+				output_id = ele_last.parentElement.parentElement.id;
+				output_class = ele_last.classList[1];
+			} else if(!sourceIsInput && (targetIsInput || ele_last.closest(".drawflow_content_node"))) {
+				// Output to Input connection
+				input_id = ele_last.closest(".drawflow_content_node") ?
+						ele_last.closest(".drawflow_content_node").parentElement.id :
+						ele_last.parentElement.parentElement.id;
+				input_class = targetIsInput ? ele_last.classList[1] : "input_1";
+				output_id = this.ele_selected.parentElement.parentElement.id;
+				output_class = this.ele_selected.classList[1];
          }
 
+			if(input_id && output_id && input_id !== output_id) {
+				// Validate connection doesn't already exist
+				const outputNode = this.drawflow.drawflow[this.module].data[output_id.slice(5)];
+				const inputNode = this.drawflow.drawflow[this.module].data[input_id.slice(5)];
 
-       } else {
-         // Fix connection;
-         var input_id = ele_last.parentElement.parentElement.id;
-         var input_class = ele_last.classList[1];
-       }
-       var output_id = this.ele_selected.parentElement.parentElement.id;
-       var output_class = this.ele_selected.classList[1];
+				let connectionExists = false;
 
-        if(output_id !== input_id && input_class !== false) {
+				if(outputNode && outputNode.outputs[output_class]) {
+					connectionExists = outputNode.outputs[output_class].connections.some(conn =>
+							conn.node === input_id.slice(5) && conn.output === input_class
+					);
+				}
 
-          if(this.container.querySelectorAll('.connection.node_in_'+input_id+'.node_out_'+output_id+'.'+output_class+'.'+input_class).length === 0) {
-          // Conection no exist save connection
+				if(!connectionExists && inputNode && inputNode.inputs[input_class]) {
+					connectionExists = inputNode.inputs[input_class].connections.some(conn =>
+							conn.node === output_id.slice(5) && conn.input === output_class
+					);
+				}
+
+				if(!connectionExists) {
 
           this.connection_ele.classList.add("node_in_"+input_id);
           this.connection_ele.classList.add("node_out_"+output_id);
           this.connection_ele.classList.add(output_class);
           this.connection_ele.classList.add(input_class);
-          var id_input = input_id.slice(5);
-          var id_output = output_id.slice(5);
 
-          this.drawflow.drawflow[this.module].data[id_output].outputs[output_class].connections.push( {"node": id_input, "output": input_class});
-          this.drawflow.drawflow[this.module].data[id_input].inputs[input_class].connections.push( {"node": id_output, "input": output_class});
-          this.updateConnectionNodes('node-'+id_output);
-          this.updateConnectionNodes('node-'+id_input);
-          this.dispatch('connectionCreated', { output_id: id_output, input_id: id_input, output_class:  output_class, input_class: input_class});
+					this.drawflow.drawflow[this.module].data[output_id.slice(5)].outputs[output_class].connections.push({
+						"node": input_id.slice(5),
+						"output": input_class
+					});
+
+					this.drawflow.drawflow[this.module].data[input_id.slice(5)].inputs[input_class].connections.push({
+						"node": output_id.slice(5),
+						"input": output_class
+					});
+
+					this.updateConnectionNodes('node-'+output_id.slice(5));
+					this.updateConnectionNodes('node-'+input_id.slice(5));
+
+					this.dispatch('connectionCreated', {
+						output_id: output_id.slice(5),
+						input_id: input_id.slice(5),
+						output_class: output_class,
+						input_class: input_class
+					});
 
         } else {
           this.dispatch('connectionCancel', true);
           this.connection_ele.remove();
         }
-
-          this.connection_ele = null;
       } else {
         // Connection exists Remove Connection;
         this.dispatch('connectionCancel', true);
         this.connection_ele.remove();
-        this.connection_ele = null;
       }
 
       } else {
         // Remove Connection;
         this.dispatch('connectionCancel', true);
         this.connection_ele.remove();
-        this.connection_ele = null;
       }
+
+		this.connection_ele = null;
     }
 
     this.drag = false;
@@ -662,14 +702,19 @@ export default class Drawflow {
     var path = document.createElementNS('http://www.w3.org/2000/svg',"path");
     path.classList.add("main-path");
     path.setAttributeNS(null, 'd', '');
-    // path.innerHTML = 'a';
     connection.classList.add("connection");
     connection.appendChild(path);
     this.precanvas.appendChild(connection);
-    var id_output = ele.parentElement.parentElement.id.slice(5);
-    var output_class = ele.classList[1];
-    this.dispatch('connectionStart', { output_id: id_output, output_class:  output_class });
 
+    if(ele.classList.contains('input')) {
+	  var id_input = ele.parentElement.parentElement.id.slice(5);
+	  var input_class = ele.classList[1];
+	  this.dispatch('connectionStart', { input_id: id_input, input_class: input_class });
+	} else {
+	  var id_output = ele.parentElement.parentElement.id.slice(5);
+	  var output_class = ele.classList[1];
+	  this.dispatch('connectionStart', {output_id: id_output, output_class: output_class});
+	}
   }
 
   updateConnection(eX, eY) {
@@ -688,7 +733,15 @@ export default class Drawflow {
     var y = eY * ( this.precanvas.clientHeight / (this.precanvas.clientHeight * this.zoom)) - (this.precanvas.getBoundingClientRect().y *  ( this.precanvas.clientHeight / (this.precanvas.clientHeight * this.zoom)) );
 
     var curvature = this.curvature;
-    var lineCurve = this.createCurvature(line_x, line_y, x, y, curvature, 'openclose');
+
+    var lineCurve;
+	if(this.ele_selected.classList.contains('input')) {
+	  // Invert curve for input-initiated connections
+	  lineCurve = this.createCurvature(x, y, line_x, line_y, curvature, 'close');
+	} else {
+	  lineCurve = this.createCurvature(line_x, line_y, x, y, curvature, 'openclose');
+	}
+
     path.setAttributeNS(null, 'd', lineCurve);
 
   }
@@ -704,8 +757,22 @@ export default class Drawflow {
         var connectionSearch = dataNode.outputs[output_class].connections[checkOutput]
         if(connectionSearch.node == id_input && connectionSearch.output == input_class) {
             exist = true;
+            break;
         }
       }
+
+      // Check input to output connections
+      if (!exist) {
+		var targetNode = this.getNodeFromId(id_input);
+		for(var checkInput in targetNode.inputs[input_class].connections) {
+			var connectionSearch = targetNode.inputs[input_class].connections[checkInput];
+			if(connectionSearch.node == id_output && connectionSearch.input == output_class) {
+				exist = true;
+				break;
+			}
+		}
+	  }
+
       // Check connection exist
       if(exist === false) {
         //Create Connection
@@ -1164,8 +1231,11 @@ export default class Drawflow {
   }
 
   getNodeFromId(id) {
-    var moduleName = this.getModuleFromNodeId(id)
-    return JSON.parse(JSON.stringify(this.drawflow.drawflow[moduleName].data[id]));
+	  var moduleName = this.getModuleFromNodeId(id);
+	  if (moduleName && this.drawflow.drawflow[moduleName] && this.drawflow.drawflow[moduleName].data[id]) {
+		  return JSON.parse(JSON.stringify(this.drawflow.drawflow[moduleName].data[id]));
+	  }
+	  return null;
   }
   getNodesFromName(name) {
     var nodes = [];
