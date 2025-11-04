@@ -1,10 +1,23 @@
+
 module.exports = {
-  entry: './src/drawflow.js',
+  entry: './src/index.ts',
   output: {
     library: 'Drawflow',
     libraryTarget: 'umd',
     libraryExport: 'default',
     filename: 'drawflow.min.js',
     globalObject: `(typeof self !== 'undefined' ? self : this)`
+  },
+  resolve: {
+    extensions: ['.ts', '.js']
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: 'ts-loader',
+        exclude: /node_modules/
+      }
+    ]
   }
 };
