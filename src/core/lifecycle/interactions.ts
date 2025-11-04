@@ -507,11 +507,43 @@ function performAutoPan(context: Drawflow): void {
   context.canvas_y += stepY;
   context.precanvas.style.transform = `translate(${context.canvas_x}px, ${context.canvas_y}px) scale(${context.zoom})`;
 
-  if (context.autoPanMode === 'connection') {
+  if (context.autoPanMode === 'node') {
+    adjustDraggedNodeDuringAutoPan(context, stepX, stepY);
+  } else if (context.autoPanMode === 'connection') {
     context.updateConnection(pointerX, pointerY);
   }
 
   scheduleAutoPan(context);
+}
+
+function adjustDraggedNodeDuringAutoPan(context: Drawflow, stepX: number, stepY: number): void {
+  if (!context.drag || !context.ele_selected) {
+    return;
+  }
+
+  const zoom = context.zoom || 1;
+  const deltaX = -stepX / zoom;
+  const deltaY = -stepY / zoom;
+
+  if (deltaX === 0 && deltaY === 0) {
+    return;
+  }
+
+  const node = context.ele_selected;
+  const nextLeft = node.offsetLeft + deltaX;
+  const nextTop = node.offsetTop + deltaY;
+
+  node.style.left = `${nextLeft}px`;
+  node.style.top = `${nextTop}px`;
+
+  const nodeId = node.id.slice(5);
+  const moduleData = context.drawflow.drawflow[context.module].data[nodeId];
+  if (moduleData) {
+    moduleData.pos_x = nextLeft;
+    moduleData.pos_y = nextTop;
+  }
+
+  context.updateConnectionNodes(node.id);
 }
 
 function calculateAutoPanStep(distance: number, margin: number, speed: number, direction: 1 | -1): number {
