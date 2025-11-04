@@ -1,0 +1,59 @@
+export interface DrawflowConnectionPoint {
+  pos_x: number;
+  pos_y: number;
+}
+
+export interface DrawflowOutputConnection {
+  node: string;
+  output: string;
+  points?: DrawflowConnectionPoint[];
+}
+
+export interface DrawflowInputConnection {
+  node: string;
+  input: string;
+  points?: DrawflowConnectionPoint[];
+}
+
+export interface DrawflowInputPort {
+  connections: DrawflowInputConnection[];
+}
+
+export interface DrawflowOutputPort {
+  connections: DrawflowOutputConnection[];
+}
+
+export interface DrawflowNodeData {
+  id: number | string;
+  name: string;
+  data: Record<string, any>;
+  class: string;
+  html: string;
+  typenode: boolean | string;
+  inputs: Record<string, DrawflowInputPort>;
+  outputs: Record<string, DrawflowOutputPort>;
+  pos_x: number;
+  pos_y: number;
+}
+
+export interface DrawflowModuleData {
+  data: Record<string, DrawflowNodeData>;
+}
+
+export interface DrawflowData {
+  drawflow: Record<string, DrawflowModuleData>;
+}
+
+export type DrawflowEventCallback<T = any> = (payload: T) => void;
+
+export interface DrawflowEventRegistry {
+  [event: string]: {
+    listeners: DrawflowEventCallback[];
+  } | undefined;
+}
+
+export interface DrawflowRender {
+  version?: string | number;
+  h?: any;
+  render?: (wrapper: any, container: HTMLElement) => void;
+}
