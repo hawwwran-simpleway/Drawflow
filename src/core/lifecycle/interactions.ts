@@ -1,5 +1,13 @@
 import type Drawflow from '../Drawflow';
 
+const hasWindow = typeof window !== 'undefined';
+const requestFrame = hasWindow && typeof window.requestAnimationFrame === 'function'
+  ? window.requestAnimationFrame.bind(window)
+  : (callback: (time: number) => void) => setTimeout(() => callback(Date.now()), 16);
+const cancelFrame = hasWindow && typeof window.cancelAnimationFrame === 'function'
+  ? window.cancelAnimationFrame.bind(window)
+  : (id: number) => clearTimeout(id);
+
 export function click(context: Drawflow, e: MouseEvent | TouchEvent): void {
   context.dispatch('click', e);
   const target = e.target as HTMLElement;
@@ -201,6 +209,9 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
 
   if (context.connection) {
     context.updateConnection(e_pos_x, e_pos_y);
+    handleConnectionAutoPan(context, e_pos_x, e_pos_y);
+  } else {
+    stopConnectionAutoPan(context);
   }
   if (context.editor_selected) {
     const x = context.canvas_x + (-(context.pos_x - e_pos_x));
@@ -317,6 +328,7 @@ export function dragEnd(context: Drawflow, e: MouseEvent | TouchEvent): void {
     context.connection_ele = null;
   }
 
+  stopConnectionAutoPan(context);
   context.drag = false;
   context.drag_point = false;
   context.connection = false;
@@ -410,6 +422,115 @@ function handleConnectionDrop(context: Drawflow, ele_last: HTMLElement | null): 
   } else {
     context.dispatch('connectionCancel', true);
     context.connection_ele!.remove();
+  }
+}
+
+function handleConnectionAutoPan(context: Drawflow, pointerX: number, pointerY: number): void {
+  if (!context.precanvas) {
+    return;
+  }
+
+  context.autoPanPointerX = pointerX;
+  context.autoPanPointerY = pointerY;
+
+  if (!shouldAutoPan(context, pointerX, pointerY)) {
+    stopConnectionAutoPan(context);
+    return;
+  }
+
+  scheduleConnectionAutoPan(context);
+}
+
+function performConnectionAutoPan(context: Drawflow): void {
+  if (!context.connection || !context.precanvas) {
+    stopConnectionAutoPan(context);
+    return;
+  }
+
+  const pointerX = context.autoPanPointerX;
+  const pointerY = context.autoPanPointerY;
+
+  if (!shouldAutoPan(context, pointerX, pointerY)) {
+    stopConnectionAutoPan(context);
+    return;
+  }
+
+  const margin = Math.max(context.autoPanEdgeMargin, 0);
+  const speed = context.autoPanSpeed;
+
+  if (margin === 0 || speed === 0) {
+    stopConnectionAutoPan(context);
+    return;
+  }
+
+  const rect = context.container.getBoundingClientRect();
+  const distanceLeft = pointerX - rect.left;
+  const distanceRight = rect.right - pointerX;
+  const distanceTop = pointerY - rect.top;
+  const distanceBottom = rect.bottom - pointerY;
+
+  const stepLeft = calculateAutoPanStep(distanceLeft, margin, speed, 1);
+  const stepRight = calculateAutoPanStep(distanceRight, margin, speed, -1);
+  const stepTop = calculateAutoPanStep(distanceTop, margin, speed, 1);
+  const stepBottom = calculateAutoPanStep(distanceBottom, margin, speed, -1);
+
+  const stepX = stepLeft !== 0 ? stepLeft : stepRight;
+  const stepY = stepTop !== 0 ? stepTop : stepBottom;
+
+  if (stepX === 0 && stepY === 0) {
+    stopConnectionAutoPan(context);
+    return;
+  }
+
+  context.canvas_x += stepX;
+  context.canvas_y += stepY;
+  context.precanvas.style.transform = `translate(${context.canvas_x}px, ${context.canvas_y}px) scale(${context.zoom})`;
+  context.updateConnection(pointerX, pointerY);
+
+  scheduleConnectionAutoPan(context);
+}
+
+function calculateAutoPanStep(distance: number, margin: number, speed: number, direction: 1 | -1): number {
+  if (distance >= margin) {
+    return 0;
+  }
+
+  const normalizedDistance = Math.max(distance, 0);
+  const intensity = (margin - normalizedDistance) / margin;
+  return direction * intensity * speed;
+}
+
+function shouldAutoPan(context: Drawflow, pointerX: number, pointerY: number): boolean {
+  const margin = Math.max(context.autoPanEdgeMargin, 0);
+  if (margin === 0) {
+    return false;
+  }
+
+  const rect = context.container.getBoundingClientRect();
+
+  return (
+    pointerX <= rect.left + margin ||
+    pointerX >= rect.right - margin ||
+    pointerY <= rect.top + margin ||
+    pointerY >= rect.bottom - margin
+  );
+}
+
+function scheduleConnectionAutoPan(context: Drawflow): void {
+  if (context.autoPanFrame != null) {
+    return;
+  }
+
+  context.autoPanFrame = requestFrame(() => {
+    context.autoPanFrame = null;
+    performConnectionAutoPan(context);
+  });
+}
+
+function stopConnectionAutoPan(context: Drawflow): void {
+  if (context.autoPanFrame != null) {
+    cancelFrame(context.autoPanFrame);
+    context.autoPanFrame = null;
   }
 }
 
