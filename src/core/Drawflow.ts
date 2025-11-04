@@ -52,6 +52,12 @@ export default class Drawflow {
   public zoom_last_value: number;
   public evCache: PointerEvent[];
   public prevDiff: number;
+  public autoPanEdgeMargin: number;
+  public autoPanSpeed: number;
+  public autoPanPointerX: number;
+  public autoPanPointerY: number;
+  public autoPanFrame: number | null;
+  public autoPanMode: 'connection' | 'node' | null;
 
   constructor(container: HTMLElement, render: any = null, parent: any = null) {
     this.events = {};
@@ -98,6 +104,12 @@ export default class Drawflow {
     this.zoom_last_value = 1;
     this.evCache = [];
     this.prevDiff = -1;
+    this.autoPanEdgeMargin = 40;
+    this.autoPanSpeed = 12;
+    this.autoPanPointerX = 0;
+    this.autoPanPointerY = 0;
+    this.autoPanFrame = null;
+    this.autoPanMode = null;
   }
 
   public start = (): void => lifecycle.start(this);
