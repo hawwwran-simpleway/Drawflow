@@ -210,8 +210,10 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
   if (context.connection) {
     context.updateConnection(e_pos_x, e_pos_y);
     handleConnectionAutoPan(context, e_pos_x, e_pos_y);
+  } else if (context.drag && context.ele_selected) {
+    handleNodeAutoPan(context, e_pos_x, e_pos_y);
   } else {
-    stopConnectionAutoPan(context);
+    stopAutoPan(context);
   }
   if (context.editor_selected) {
     const x = context.canvas_x + (-(context.pos_x - e_pos_x));
@@ -328,7 +330,7 @@ export function dragEnd(context: Drawflow, e: MouseEvent | TouchEvent): void {
     context.connection_ele = null;
   }
 
-  stopConnectionAutoPan(context);
+  stopAutoPan(context);
   context.drag = false;
   context.drag_point = false;
   context.connection = false;
@@ -426,24 +428,43 @@ function handleConnectionDrop(context: Drawflow, ele_last: HTMLElement | null): 
 }
 
 function handleConnectionAutoPan(context: Drawflow, pointerX: number, pointerY: number): void {
+  handleAutoPan(context, 'connection', pointerX, pointerY);
+}
+
+function handleNodeAutoPan(context: Drawflow, pointerX: number, pointerY: number): void {
+  if (!context.drag || !context.ele_selected) {
+    stopAutoPan(context);
+    return;
+  }
+
+  handleAutoPan(context, 'node', pointerX, pointerY);
+}
+
+function handleAutoPan(
+  context: Drawflow,
+  mode: 'connection' | 'node',
+  pointerX: number,
+  pointerY: number
+): void {
   if (!context.precanvas) {
     return;
   }
 
   context.autoPanPointerX = pointerX;
   context.autoPanPointerY = pointerY;
+  context.autoPanMode = mode;
 
   if (!shouldAutoPan(context, pointerX, pointerY)) {
-    stopConnectionAutoPan(context);
+    stopAutoPan(context);
     return;
   }
 
-  scheduleConnectionAutoPan(context);
+  scheduleAutoPan(context);
 }
 
-function performConnectionAutoPan(context: Drawflow): void {
-  if (!context.connection || !context.precanvas) {
-    stopConnectionAutoPan(context);
+function performAutoPan(context: Drawflow): void {
+  if (!context.autoPanMode || !context.precanvas) {
+    stopAutoPan(context);
     return;
   }
 
@@ -451,7 +472,7 @@ function performConnectionAutoPan(context: Drawflow): void {
   const pointerY = context.autoPanPointerY;
 
   if (!shouldAutoPan(context, pointerX, pointerY)) {
-    stopConnectionAutoPan(context);
+    stopAutoPan(context);
     return;
   }
 
@@ -459,7 +480,7 @@ function performConnectionAutoPan(context: Drawflow): void {
   const speed = context.autoPanSpeed;
 
   if (margin === 0 || speed === 0) {
-    stopConnectionAutoPan(context);
+    stopAutoPan(context);
     return;
   }
 
@@ -478,16 +499,19 @@ function performConnectionAutoPan(context: Drawflow): void {
   const stepY = stepTop !== 0 ? stepTop : stepBottom;
 
   if (stepX === 0 && stepY === 0) {
-    stopConnectionAutoPan(context);
+    stopAutoPan(context);
     return;
   }
 
   context.canvas_x += stepX;
   context.canvas_y += stepY;
   context.precanvas.style.transform = `translate(${context.canvas_x}px, ${context.canvas_y}px) scale(${context.zoom})`;
-  context.updateConnection(pointerX, pointerY);
 
-  scheduleConnectionAutoPan(context);
+  if (context.autoPanMode === 'connection') {
+    context.updateConnection(pointerX, pointerY);
+  }
+
+  scheduleAutoPan(context);
 }
 
 function calculateAutoPanStep(distance: number, margin: number, speed: number, direction: 1 | -1): number {
@@ -516,22 +540,24 @@ function shouldAutoPan(context: Drawflow, pointerX: number, pointerY: number): b
   );
 }
 
-function scheduleConnectionAutoPan(context: Drawflow): void {
+function scheduleAutoPan(context: Drawflow): void {
   if (context.autoPanFrame != null) {
     return;
   }
 
   context.autoPanFrame = requestFrame(() => {
     context.autoPanFrame = null;
-    performConnectionAutoPan(context);
+    performAutoPan(context);
   });
 }
 
-function stopConnectionAutoPan(context: Drawflow): void {
+function stopAutoPan(context: Drawflow): void {
   if (context.autoPanFrame != null) {
     cancelFrame(context.autoPanFrame);
     context.autoPanFrame = null;
   }
+
+  context.autoPanMode = null;
 }
 
 export function contextmenu(context: Drawflow, e: MouseEvent): void {

@@ -57,6 +57,7 @@ export default class Drawflow {
   public autoPanPointerX: number;
   public autoPanPointerY: number;
   public autoPanFrame: number | null;
+  public autoPanMode: 'connection' | 'node' | null;
 
   constructor(container: HTMLElement, render: any = null, parent: any = null) {
     this.events = {};
@@ -108,6 +109,7 @@ export default class Drawflow {
     this.autoPanPointerX = 0;
     this.autoPanPointerY = 0;
     this.autoPanFrame = null;
+    this.autoPanMode = null;
   }
 
   public start = (): void => lifecycle.start(this);
