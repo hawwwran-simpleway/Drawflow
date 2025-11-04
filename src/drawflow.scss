@@ -1,0 +1,160 @@
+$node-background: var(--drawflow-node-background, cyan);
+$node-selected-background: var(--drawflow-node-selected-background, red);
+$node-border-color: var(--drawflow-node-border-color, black);
+$node-border-radius: 4px;
+$input-background: var(--drawflow-input-background, yellow);
+$connection-color: var(--drawflow-connection-color, steelblue);
+$connection-hover-color: var(--drawflow-connection-hover-color, #1266ab);
+$connection-selected-color: var(--drawflow-connection-selected-color, #43b993);
+$connection-point-stroke: var(--drawflow-connection-point-stroke, black);
+$delete-background: var(--drawflow-delete-background, black);
+$delete-color: var(--drawflow-delete-color, white);
+
+.parent-drawflow {
+  display: flex;
+  overflow: hidden;
+  touch-action: none;
+  outline: none;
+}
+
+.drawflow {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  user-select: none;
+  perspective: 0;
+
+  .parent-node {
+    position: relative;
+
+    .drawflow-delete {
+      right: -15px;
+      top: -15px;
+    }
+  }
+
+  .drawflow-node {
+    display: flex;
+    align-items: center;
+    position: absolute;
+    background: $node-background;
+    width: 160px;
+    min-height: 40px;
+    border-radius: $node-border-radius;
+    border: 2px solid $node-border-color;
+    color: black;
+    z-index: 2;
+    padding: 15px;
+
+    &.selected {
+      background: $node-selected-background;
+    }
+
+    &:hover {
+      cursor: move;
+    }
+
+    .inputs,
+    .outputs {
+      width: 0;
+    }
+
+    .drawflow_content_node {
+      width: 100%;
+      display: block;
+    }
+
+    .input,
+    .output {
+      position: relative;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      border: 2px solid $node-border-color;
+      cursor: crosshair;
+      z-index: 1;
+      margin-bottom: 5px;
+    }
+
+    .input {
+      left: -27px;
+      top: 2px;
+      background: $input-background;
+    }
+
+    .output {
+      right: -3px;
+      top: 2px;
+    }
+  }
+
+  svg {
+    z-index: 0;
+    position: absolute;
+    overflow: visible !important;
+  }
+
+  .connection {
+    position: absolute;
+    pointer-events: none;
+    aspect-ratio: 1 / 1;
+
+    .main-path {
+      fill: none;
+      stroke-width: 5px;
+      stroke: $connection-color;
+      pointer-events: all;
+
+      &:hover {
+        stroke: $connection-hover-color;
+        cursor: pointer;
+      }
+
+      &.selected {
+        stroke: $connection-selected-color;
+      }
+    }
+
+    .point {
+      cursor: move;
+      stroke: $connection-point-stroke;
+      stroke-width: 2;
+      fill: white;
+      pointer-events: all;
+
+      &.selected,
+      &:hover {
+        fill: $connection-hover-color;
+      }
+    }
+  }
+
+  .main-path {
+    fill: none;
+    stroke-width: 5px;
+    stroke: $connection-color;
+  }
+
+  > .drawflow-delete {
+    margin-left: -15px;
+    margin-top: 15px;
+  }
+}
+
+.drawflow-delete {
+  position: absolute;
+  display: block;
+  width: 30px;
+  height: 30px;
+  background: $delete-background;
+  color: $delete-color;
+  z-index: 4;
+  border: 2px solid white;
+  line-height: 30px;
+  font-weight: bold;
+  text-align: center;
+  border-radius: 50%;
+  font-family: monospace;
+  cursor: pointer;
+}
