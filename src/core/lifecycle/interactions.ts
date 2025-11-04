@@ -530,8 +530,12 @@ function adjustDraggedNodeDuringAutoPan(context: Drawflow, stepX: number, stepY:
   }
 
   const node = context.ele_selected;
-  const nextLeft = node.offsetLeft + deltaX;
-  const nextTop = node.offsetTop + deltaY;
+
+  const currentLeft = getPreciseNodePosition(node.style.left, node.offsetLeft);
+  const currentTop = getPreciseNodePosition(node.style.top, node.offsetTop);
+
+  const nextLeft = currentLeft + deltaX;
+  const nextTop = currentTop + deltaY;
 
   node.style.left = `${nextLeft}px`;
   node.style.top = `${nextTop}px`;
@@ -544,6 +548,11 @@ function adjustDraggedNodeDuringAutoPan(context: Drawflow, stepX: number, stepY:
   }
 
   context.updateConnectionNodes(node.id);
+}
+
+function getPreciseNodePosition(styleValue: string, fallback: number): number {
+  const parsed = parseFloat(styleValue);
+  return Number.isNaN(parsed) ? fallback : parsed;
 }
 
 function calculateAutoPanStep(distance: number, margin: number, speed: number, direction: 1 | -1): number {
