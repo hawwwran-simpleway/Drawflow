@@ -15,76 +15,34 @@ export function createCurvature(
   const x = end_pos_x;
   const y = end_pos_y;
   const curvature = curvature_value;
-  const deltaX = x - line_x;
-  const deltaY = y - line_y;
-  const horizontalDistance = Math.abs(deltaX);
-
-  const { handleStartX, handleEndX } = (() => {
-    switch (type) {
-      case 'open':
-        if (start_pos_x >= end_pos_x) {
-          return {
-            handleStartX: line_x + horizontalDistance * curvature,
-            handleEndX: x - horizontalDistance * (curvature * -1)
-          };
-        }
-        return {
-          handleStartX: line_x + horizontalDistance * curvature,
-          handleEndX: x - horizontalDistance * curvature
-        };
-      case 'close':
-        if (start_pos_x >= end_pos_x) {
-          return {
-            handleStartX: line_x + horizontalDistance * (curvature * -1),
-            handleEndX: x - horizontalDistance * curvature
-          };
-        }
-        return {
-          handleStartX: line_x + horizontalDistance * curvature,
-          handleEndX: x - horizontalDistance * curvature
-        };
-      case 'other':
-        if (start_pos_x >= end_pos_x) {
-          return {
-            handleStartX: line_x + horizontalDistance * (curvature * -1),
-            handleEndX: x - horizontalDistance * (curvature * -1)
-          };
-        }
-        return {
-          handleStartX: line_x + horizontalDistance * curvature,
-          handleEndX: x - horizontalDistance * curvature
-        };
-      default:
-        return {
-          handleStartX: line_x + horizontalDistance * curvature,
-          handleEndX: x - horizontalDistance * curvature
-        };
+  switch (type) {
+    case 'open':
+      if (start_pos_x >= end_pos_x) {
+        const hx1 = line_x + Math.abs(x - line_x) * curvature;
+        const hx2 = x - Math.abs(x - line_x) * (curvature * -1);
+        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
+      }
+      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
+    case 'close':
+      if (start_pos_x >= end_pos_x) {
+        const hx1 = line_x + Math.abs(x - line_x) * (curvature * -1);
+        const hx2 = x - Math.abs(x - line_x) * curvature;
+        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
+      }
+      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
+    case 'other':
+      if (start_pos_x >= end_pos_x) {
+        const hx1 = line_x + Math.abs(x - line_x) * (curvature * -1);
+        const hx2 = x - Math.abs(x - line_x) * (curvature * -1);
+        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
+      }
+      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
+    default: {
+      const hx1 = line_x + Math.abs(x - line_x) * curvature;
+      const hx2 = x - Math.abs(x - line_x) * curvature;
+      return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
     }
-  })();
-
-  const EPSILON = 1e-6;
-  const handleStartY = (() => {
-    if (Math.abs(deltaX) > EPSILON) {
-      const t = (handleStartX - line_x) / deltaX;
-      return line_y + deltaY * t;
-    }
-    return line_y + deltaY * curvature;
-  })();
-
-  const handleEndY = (() => {
-    if (Math.abs(deltaX) > EPSILON) {
-      const t = (x - handleEndX) / deltaX;
-      return y - deltaY * t;
-    }
-    return y - deltaY * curvature;
-  })();
-
-  const hx1 = handleStartX;
-  const hy1 = handleStartY;
-  const hx2 = handleEndX;
-  const hy2 = handleEndY;
-
-  return ` M ${line_x} ${line_y} C ${hx1} ${hy1} ${hx2} ${hy2} ${x}  ${y}`;
+  }
 }
 
 export function drawConnection(context: Drawflow, ele: HTMLElement): void {
@@ -251,8 +209,6 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
         reroute_curvature,
         reroute_curvature_start_end,
         reroute_fix_curvature,
-        curvature,
-        zoom,
       });
     }
   });
@@ -291,8 +247,6 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
         reroute_curvature,
         reroute_curvature_start_end,
         reroute_fix_curvature,
-        curvature,
-        zoom,
       });
     }
   });
@@ -309,8 +263,6 @@ interface UpdateConnectionWithPointsArgs {
   reroute_curvature: number;
   reroute_curvature_start_end: number;
   reroute_fix_curvature: boolean;
-  curvature: number;
-  zoom: number;
 }
 
 const ensureNodeDomId = (nodeId: string): string => (nodeId.startsWith('node-') ? nodeId : `node-${nodeId}`);
@@ -343,133 +295,175 @@ const getInputNodeIdFromClassList = (classList: DOMTokenList): string => {
 
 function updateConnectionWithPoints(args: UpdateConnectionWithPointsArgs): void {
   const { context, element, outputNodeId, inputNodeId, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth, reroute_curvature,
-    reroute_curvature_start_end, reroute_fix_curvature, curvature, zoom } = args;
+    reroute_curvature_start_end, reroute_fix_curvature } = args;
   const points = element.querySelectorAll<SVGCircleElement>('.point');
-  let linecurve = '';
-  const reoute_fix: string[] = [];
   const normalizedOutputNodeId = ensureNodeDomId(outputNodeId);
   const normalizedInputNodeId = ensureNodeDomId(inputNodeId);
 
-  points.forEach((point, i) => {
-    const data = calculateRerouteSegment({
-      context,
-      element,
-      point,
-      index: i,
-      points,
-      precanvasWidthZoom,
-      precanvasHeightZoom,
-      rerouteWidth,
-      reroute_curvature,
-      reroute_curvature_start_end,
-      reroute_fix_curvature,
-      zoom,
-      outputNodeId: normalizedOutputNodeId,
-      inputNodeId: normalizedInputNodeId
-    });
-    linecurve += data.path;
-    if (reroute_fix_curvature) {
-      reoute_fix.push(data.path);
-    }
+  const reroutePath = buildReroutePath({
+    context,
+    element,
+    points,
+    precanvasWidthZoom,
+    precanvasHeightZoom,
+    rerouteWidth,
+    reroute_curvature,
+    reroute_curvature_start_end,
+    outputNodeId: normalizedOutputNodeId,
+    inputNodeId: normalizedInputNodeId
   });
 
+  if (!reroutePath) {
+    return;
+  }
+
   if (reroute_fix_curvature) {
-    reoute_fix.forEach((itempath, index) => {
-      const mainPath = element.children[index] as SVGPathElement;
-      if (mainPath) {
-        mainPath.setAttributeNS(null, 'd', itempath);
+    reroutePath.segmentPaths.forEach((segmentPath, index) => {
+      const pathElement = element.children[index] as SVGPathElement | undefined;
+      if (pathElement) {
+        pathElement.setAttributeNS(null, 'd', segmentPath);
       }
     });
   } else {
-    (element.children[0] as SVGPathElement).setAttributeNS(null, 'd', linecurve);
+    (element.children[0] as SVGPathElement).setAttributeNS(null, 'd', reroutePath.fullPath);
   }
 }
 
-interface CalculateRerouteArgs {
+interface BuildReroutePathArgs {
   context: Drawflow;
   element: HTMLElement;
-  point: SVGCircleElement;
-  index: number;
   points: NodeListOf<SVGCircleElement>;
   precanvasWidthZoom: number;
   precanvasHeightZoom: number;
   rerouteWidth: number;
   reroute_curvature: number;
   reroute_curvature_start_end: number;
-  reroute_fix_curvature: boolean;
-  zoom: number;
   outputNodeId: string;
   inputNodeId: string;
 }
 
-function calculateRerouteSegment(args: CalculateRerouteArgs): { path: string } {
-  const { context, element, point, index, points, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth,
-    reroute_curvature, reroute_curvature_start_end, reroute_fix_curvature, zoom, outputNodeId, inputNodeId } = args;
-  const precanvas = context.precanvas!;
+interface CanvasPoint {
+  x: number;
+  y: number;
+}
 
-  const create = (sx: number, sy: number, ex: number, ey: number, type: string): string =>
-    createCurvature(context, sx, sy, ex, ey, type === 'other' ? reroute_curvature : reroute_curvature_start_end, type);
+interface ReroutePath {
+  fullPath: string;
+  segmentPaths: string[];
+}
 
-  if (index === 0 && ((points.length - 1) === 0)) {
-    const elemtsearchId_out = context.container.querySelector(`#${outputNodeId}`) as HTMLElement;
-    const elemtsearch = point;
+function buildReroutePath(args: BuildReroutePathArgs): ReroutePath | null {
+  const { context, element, points, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth, reroute_curvature,
+    reroute_curvature_start_end, outputNodeId, inputNodeId } = args;
 
-    const eX = (elemtsearch.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom + rerouteWidth;
-    const eY = (elemtsearch.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom + rerouteWidth;
-
-    const elemtsearchOut = elemtsearchId_out.querySelector<HTMLElement>(`.${point.parentElement!.classList[3]}`)!;
-    const line_x = elemtsearchOut.offsetWidth / 2 + (elemtsearchOut.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom;
-    const line_y = elemtsearchOut.offsetHeight / 2 + (elemtsearchOut.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom;
-    const pathOpen = create(line_x, line_y, eX, eY, 'open');
-
-    const elemtsearchId = context.container.querySelector(`#${inputNodeId}`) as HTMLElement;
-    const elemtsearchIn = elemtsearchId.querySelector<HTMLElement>(`.${point.parentElement!.classList[4]}`)!;
-    const eXIn = elemtsearchIn.offsetWidth / 2 + (elemtsearchIn.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom;
-    const eYIn = elemtsearchIn.offsetHeight / 2 + (elemtsearchIn.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom;
-    const pathClose = create(eX, eY, eXIn, eYIn, 'close');
-
-    return { path: `${pathOpen}${pathClose}` };
+  const precanvas = context.precanvas;
+  if (!precanvas) {
+    return null;
   }
 
-  if (index === 0) {
-    const elemtsearchId_out = context.container.querySelector(`#${outputNodeId}`) as HTMLElement;
-    const elemtsearch = point;
+  const precanvasRect = precanvas.getBoundingClientRect();
 
-    const eX = (elemtsearch.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom + rerouteWidth;
-    const eY = (elemtsearch.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom + rerouteWidth;
+  const outputNode = context.container.querySelector(`#${outputNodeId}`) as HTMLElement | null;
+  const inputNode = context.container.querySelector(`#${inputNodeId}`) as HTMLElement | null;
 
-    const elemtsearchOut = elemtsearchId_out.querySelector<HTMLElement>(`.${point.parentElement!.classList[3]}`)!;
-    const line_x = elemtsearchOut.offsetWidth / 2 + (elemtsearchOut.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom;
-    const line_y = elemtsearchOut.offsetHeight / 2 + (elemtsearchOut.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom;
-    const pathOpen = create(line_x, line_y, eX, eY, 'open');
-
-    const nextPoint = points[index + 1];
-    const eXNext = (nextPoint.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom + rerouteWidth;
-    const eYNext = (nextPoint.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom + rerouteWidth;
-    const pathOther = create(eX, eY, eXNext, eYNext, 'other');
-    return { path: `${pathOpen}${pathOther}` };
+  if (!outputNode || !inputNode) {
+    return null;
   }
 
-  if (index === (points.length - 1)) {
-    const elemtsearchId = context.container.querySelector(`#${inputNodeId}`) as HTMLElement;
-    const elemtsearchIn = elemtsearchId.querySelector<HTMLElement>(`.${point.parentElement!.classList[4]}`)!;
-    const eXIn = elemtsearchIn.offsetWidth / 2 + (elemtsearchIn.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom;
-    const eYIn = elemtsearchIn.offsetHeight / 2 + (elemtsearchIn.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom;
+  const outputPort = outputNode.querySelector<HTMLElement>(`.${element.classList[3]}`);
+  const inputPort = inputNode.querySelector<HTMLElement>(`.${element.classList[4]}`);
 
-    const line_x = (point.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom + rerouteWidth;
-    const line_y = (point.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom + rerouteWidth;
-
-    const pathClose = create(line_x, line_y, eXIn, eYIn, 'close');
-    return { path: pathClose };
+  if (!outputPort || !inputPort) {
+    return null;
   }
 
-  const nextPoint = points[index + 1];
-  const eX = (nextPoint.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom + rerouteWidth;
-  const eY = (nextPoint.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom + rerouteWidth;
-  const line_x = (point.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom + rerouteWidth;
-  const line_y = (point.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom + rerouteWidth;
-  const pathOther = create(line_x, line_y, eX, eY, 'other');
-  return { path: pathOther };
+  const pathPoints: CanvasPoint[] = [];
+
+  pathPoints.push(getPortCenter(outputPort, precanvasRect, precanvasWidthZoom, precanvasHeightZoom));
+
+  points.forEach((point) => {
+    pathPoints.push(getReroutePointCenter(point, precanvasRect, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth));
+  });
+
+  pathPoints.push(getPortCenter(inputPort, precanvasRect, precanvasWidthZoom, precanvasHeightZoom));
+
+  if (pathPoints.length < 2) {
+    return null;
+  }
+
+  const { fullPath, segmentPaths } = createSmoothPath(pathPoints, reroute_curvature_start_end, reroute_curvature);
+  return { fullPath, segmentPaths };
+}
+
+function getPortCenter(
+  port: HTMLElement,
+  precanvasRect: DOMRect,
+  precanvasWidthZoom: number,
+  precanvasHeightZoom: number
+): CanvasPoint {
+  const portRect = port.getBoundingClientRect();
+  return {
+    x: port.offsetWidth / 2 + (portRect.x - precanvasRect.x) * precanvasWidthZoom,
+    y: port.offsetHeight / 2 + (portRect.y - precanvasRect.y) * precanvasHeightZoom,
+  };
+}
+
+function getReroutePointCenter(
+  point: SVGCircleElement,
+  precanvasRect: DOMRect,
+  precanvasWidthZoom: number,
+  precanvasHeightZoom: number,
+  rerouteWidth: number
+): CanvasPoint {
+  const pointRect = point.getBoundingClientRect();
+  return {
+    x: (pointRect.x - precanvasRect.x) * precanvasWidthZoom + rerouteWidth,
+    y: (pointRect.y - precanvasRect.y) * precanvasHeightZoom + rerouteWidth,
+  };
+}
+
+function createSmoothPath(
+  points: CanvasPoint[],
+  startEndCurvature: number,
+  middleCurvature: number
+): ReroutePath {
+  if (points.length === 0) {
+    return { fullPath: '', segmentPaths: [] };
+  }
+
+  let fullPath = ` M ${points[0].x} ${points[0].y}`;
+  const segmentPaths: string[] = [];
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    const curvature = (index === 0 || index === points.length - 2) ? startEndCurvature : middleCurvature;
+    const { cp1, cp2 } = computeControlPoints(points, index, curvature);
+    fullPath += ` C ${cp1.x} ${cp1.y} ${cp2.x} ${cp2.y} ${end.x} ${end.y}`;
+    segmentPaths.push(` M ${start.x} ${start.y} C ${cp1.x} ${cp1.y} ${cp2.x} ${cp2.y} ${end.x} ${end.y}`);
+  }
+
+  return { fullPath, segmentPaths };
+}
+
+function computeControlPoints(points: CanvasPoint[], index: number, curvature: number): { cp1: CanvasPoint; cp2: CanvasPoint } {
+  const p0 = points[index - 1] ?? points[index];
+  const p1 = points[index];
+  const p2 = points[index + 1];
+  const p3 = points[index + 2] ?? points[index + 1];
+
+  const tangentScale = curvature * 0.5;
+  const tangent1 = scalePoint({ x: p2.x - p0.x, y: p2.y - p0.y }, tangentScale);
+  const tangent2 = scalePoint({ x: p3.x - p1.x, y: p3.y - p1.y }, tangentScale);
+
+  const cp1: CanvasPoint = { x: p1.x + tangent1.x / 3, y: p1.y + tangent1.y / 3 };
+  const cp2: CanvasPoint = { x: p2.x - tangent2.x / 3, y: p2.y - tangent2.y / 3 };
+
+  return { cp1, cp2 };
+}
+
+function scalePoint(point: CanvasPoint, scale: number): CanvasPoint {
+  return { x: point.x * scale, y: point.y * scale };
 }
 
 export function dblclick(context: Drawflow, e: MouseEvent): void {
