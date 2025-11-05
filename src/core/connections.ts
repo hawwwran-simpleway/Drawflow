@@ -492,31 +492,68 @@ export function createReroutePoint(context: Drawflow, ele: Element): void {
       if (!precanvas) {
         return connection.points.length;
       }
-      const nodeElementOut = context.container.querySelector<HTMLElement>(`#${nodeUpdate}`);
-      const outputElement = nodeElementOut?.querySelector<HTMLElement>(`.${output_class}`) ?? null;
-      if (!nodeElementOut || !outputElement) {
+
+      const outputNodeElement = context.container.querySelector<HTMLElement>(`#${nodeUpdate}`);
+      const inputNodeDomId = nodeUpdateIn.startsWith('node-') ? nodeUpdateIn : `node-${nodeUpdateIn}`;
+      const inputNodeElement = context.container.querySelector<HTMLElement>(`#${inputNodeDomId}`);
+      const outputElement = outputNodeElement?.querySelector<HTMLElement>(`.${output_class}`) ?? null;
+      const inputElement = inputNodeElement?.querySelector<HTMLElement>(`.${input_class}`) ?? null;
+
+      if (!outputElement || !inputElement) {
         return connection.points.length;
       }
+
       const zoom = context.zoom;
       const precanvasRect = precanvas.getBoundingClientRect();
       const precanvasWidthZoom = precanvas.clientWidth / (precanvas.clientWidth * zoom) || 0;
       const precanvasHeightZoom = precanvas.clientHeight / (precanvas.clientHeight * zoom) || 0;
-      const outputX = outputElement.offsetWidth / 2 +
-        (outputElement.getBoundingClientRect().x - precanvasRect.x) * precanvasWidthZoom;
-      const outputY = outputElement.offsetHeight / 2 +
-        (outputElement.getBoundingClientRect().y - precanvasRect.y) * precanvasHeightZoom;
-      const distanceToOutput = (x: number, y: number): number => {
-        return Math.hypot(x - outputX, y - outputY);
-      };
-      const newDistance = distanceToOutput(pos_x, pos_y);
-      for (let i = 0; i < connection.points.length; i += 1) {
-        const existing = connection.points[i];
-        const existingDistance = distanceToOutput(existing.pos_x, existing.pos_y);
-        if (newDistance < existingDistance) {
-          return i;
+
+      const toCanvasX = (element: HTMLElement): number =>
+        element.offsetWidth / 2 + (element.getBoundingClientRect().x - precanvasRect.x) * precanvasWidthZoom;
+      const toCanvasY = (element: HTMLElement): number =>
+        element.offsetHeight / 2 + (element.getBoundingClientRect().y - precanvasRect.y) * precanvasHeightZoom;
+
+      const startPoint = { x: toCanvasX(outputElement), y: toCanvasY(outputElement) };
+      const endPoint = { x: toCanvasX(inputElement), y: toCanvasY(inputElement) };
+      const existingPoints = connection.points.map((pt) => ({ x: pt.pos_x, y: pt.pos_y }));
+      const routePoints = [startPoint, ...existingPoints, endPoint];
+
+      const newPoint = { x: pos_x, y: pos_y };
+      let bestIndex = connection.points.length;
+      let bestDistanceSq = Number.POSITIVE_INFINITY;
+      let bestAlongDistance = Number.POSITIVE_INFINITY;
+      let accumulatedDistance = 0;
+      const EPSILON = 1e-6;
+
+      for (let i = 0; i < routePoints.length - 1; i += 1) {
+        const segmentStart = routePoints[i];
+        const segmentEnd = routePoints[i + 1];
+        const dx = segmentEnd.x - segmentStart.x;
+        const dy = segmentEnd.y - segmentStart.y;
+        const lengthSq = dx * dx + dy * dy;
+
+        let t = 0;
+        if (lengthSq > 0) {
+          t = ((newPoint.x - segmentStart.x) * dx + (newPoint.y - segmentStart.y) * dy) / lengthSq;
+          t = Math.max(0, Math.min(1, t));
         }
+
+        const projX = segmentStart.x + dx * t;
+        const projY = segmentStart.y + dy * t;
+        const distSq = (newPoint.x - projX) ** 2 + (newPoint.y - projY) ** 2;
+        const alongDistance = accumulatedDistance + Math.hypot(projX - segmentStart.x, projY - segmentStart.y);
+
+        if ((distSq + EPSILON) < bestDistanceSq ||
+          (Math.abs(distSq - bestDistanceSq) <= EPSILON && alongDistance < bestAlongDistance)) {
+          bestDistanceSq = distSq;
+          bestAlongDistance = alongDistance;
+          bestIndex = Math.min(i, connection.points.length);
+        }
+
+        accumulatedDistance += Math.hypot(dx, dy);
       }
-      return connection.points.length;
+
+      return bestIndex;
     };
 
     insertIndex = calculateInsertIndex();
