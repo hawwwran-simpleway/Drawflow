@@ -452,7 +452,7 @@ function computeControlPoints(points: CanvasPoint[], index: number, curvature: n
   const p2 = points[index + 1];
   const p3 = points[index + 2] ?? points[index + 1];
 
-  const tangentScale = curvature * 0.5;
+  const tangentScale = curvature * 0.75;
   const tangent1 = scalePoint({ x: p2.x - p0.x, y: p2.y - p0.y }, tangentScale);
   const tangent2 = scalePoint({ x: p3.x - p1.x, y: p3.y - p1.y }, tangentScale);
 
