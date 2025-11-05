@@ -422,21 +422,22 @@ export function createReroutePoint(context: Drawflow, ele: Element): void {
   point.setAttributeNS(null, 'r', context.reroute_width.toString());
 
   let position_add_array_point = 0;
+  const parentConnection = ele.parentElement as Element;
   if (context.reroute_fix_curvature) {
     const numberPoints = ele.parentElement!.querySelectorAll('.main-path').length;
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.classList.add('main-path');
     path.setAttributeNS(null, 'd', '');
-    ele.parentElement!.insertBefore(path, ele.parentElement!.children[numberPoints]);
+    parentConnection.insertBefore(path, parentConnection.children[numberPoints]);
     if (numberPoints === 1) {
-      ele.parentElement!.appendChild(point);
+      parentConnection.appendChild(point);
     } else {
-      const search_point = Array.from(ele.parentElement!.children).indexOf(ele);
+      const search_point = Array.from(parentConnection.children).indexOf(ele);
       position_add_array_point = search_point;
-      ele.parentElement!.insertBefore(point, ele.parentElement!.children[search_point + numberPoints + 1]);
+      parentConnection.insertBefore(point, parentConnection.children[search_point + numberPoints + 1]);
     }
   } else {
-    ele.parentElement!.appendChild(point);
+    parentConnection.appendChild(point);
   }
 
   const nodeId = nodeUpdate.slice(5);
@@ -459,7 +460,35 @@ export function createReroutePoint(context: Drawflow, ele: Element): void {
       item.classList.remove('selected');
     });
   } else {
-    connection.points.push({ pos_x, pos_y });
+    const precanvas = context.precanvas!;
+    const precanvasRect = precanvas.getBoundingClientRect();
+    const precanvasWidthZoom = precanvas.clientWidth / (precanvas.clientWidth * context.zoom) || 0;
+    const precanvasHeightZoom = precanvas.clientHeight / (precanvas.clientHeight * context.zoom) || 0;
+    const outputNodeElement = context.container.querySelector(`#${nodeUpdate}`) as HTMLElement;
+    const outputSocket = outputNodeElement.querySelector<HTMLElement>(`.${output_class}`)!;
+    const outputRect = outputSocket.getBoundingClientRect();
+    const outputPosX = outputSocket.offsetWidth / 2 + (outputRect.x - precanvasRect.x) * precanvasWidthZoom;
+    const outputPosY = outputSocket.offsetHeight / 2 + (outputRect.y - precanvasRect.y) * precanvasHeightZoom;
+    const distanceFromOutput = (x: number, y: number): number => Math.hypot(x - outputPosX, y - outputPosY);
+    const getCirclePosition = (circle: SVGCircleElement): { x: number; y: number } => ({
+      x: Number(circle.getAttribute('cx') ?? 0),
+      y: Number(circle.getAttribute('cy') ?? 0),
+    });
+    const sortedPoints = Array.from(parentConnection.querySelectorAll<SVGCircleElement>('.point'))
+      .sort((a, b) => {
+        const positionA = getCirclePosition(a);
+        const positionB = getCirclePosition(b);
+        return distanceFromOutput(positionA.x, positionA.y) - distanceFromOutput(positionB.x, positionB.y);
+      });
+
+    sortedPoints.forEach((sortedPoint) => {
+      parentConnection.appendChild(sortedPoint);
+    });
+
+    connection.points = sortedPoints.map((sortedPoint) => {
+      const position = getCirclePosition(sortedPoint);
+      return { pos_x: position.x, pos_y: position.y };
+    });
   }
 
   context.dispatch('addReroute', nodeId);
