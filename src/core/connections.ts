@@ -196,10 +196,13 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
       const lineCurve = createCurvature(context, line_x, line_y, x, y, curvature, 'openclose');
       (element.children[0] as SVGPathElement).setAttributeNS(null, 'd', lineCurve);
     } else {
+      const outputNodeId = element.classList[2].slice(9);
+      const inputNodeId = element.classList[1].slice(13);
       updateConnectionWithPoints({
         context,
         element,
-        id,
+        outputNodeId,
+        inputNodeId,
         precanvasWidthZoom,
         precanvasHeightZoom,
         rerouteWidth,
@@ -233,10 +236,13 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
       const lineCurve = createCurvature(context, line_x, line_y, x, y, curvature, 'openclose');
       (element.children[0] as SVGPathElement).setAttributeNS(null, 'd', lineCurve);
     } else {
+      const outputNodeId = element.classList[2].slice(9);
+      const inputNodeId = element.classList[1].slice(13);
       updateConnectionWithPoints({
         context,
         element,
-        id,
+        outputNodeId,
+        inputNodeId,
         precanvasWidthZoom,
         precanvasHeightZoom,
         rerouteWidth,
@@ -253,7 +259,8 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
 interface UpdateConnectionWithPointsArgs {
   context: Drawflow;
   element: HTMLElement;
-  id: string;
+  outputNodeId: string;
+  inputNodeId: string;
   precanvasWidthZoom: number;
   precanvasHeightZoom: number;
   rerouteWidth: number;
@@ -265,7 +272,7 @@ interface UpdateConnectionWithPointsArgs {
 }
 
 function updateConnectionWithPoints(args: UpdateConnectionWithPointsArgs): void {
-  const { context, element, id, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth, reroute_curvature,
+  const { context, element, outputNodeId, inputNodeId, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth, reroute_curvature,
     reroute_curvature_start_end, reroute_fix_curvature, curvature, zoom } = args;
   const points = element.querySelectorAll<SVGCircleElement>('.point');
   let linecurve = '';
@@ -285,7 +292,8 @@ function updateConnectionWithPoints(args: UpdateConnectionWithPointsArgs): void 
       reroute_curvature_start_end,
       reroute_fix_curvature,
       zoom,
-      id
+      outputNodeId,
+      inputNodeId
     });
     linecurve += data.path;
     if (reroute_fix_curvature) {
@@ -318,19 +326,20 @@ interface CalculateRerouteArgs {
   reroute_curvature_start_end: number;
   reroute_fix_curvature: boolean;
   zoom: number;
-  id: string;
+  outputNodeId: string;
+  inputNodeId: string;
 }
 
 function calculateRerouteSegment(args: CalculateRerouteArgs): { path: string } {
   const { context, element, point, index, points, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth,
-    reroute_curvature, reroute_curvature_start_end, reroute_fix_curvature, zoom, id } = args;
+    reroute_curvature, reroute_curvature_start_end, reroute_fix_curvature, zoom, outputNodeId, inputNodeId } = args;
   const precanvas = context.precanvas!;
 
   const create = (sx: number, sy: number, ex: number, ey: number, type: string): string =>
     createCurvature(context, sx, sy, ex, ey, type === 'other' ? reroute_curvature : reroute_curvature_start_end, type);
 
   if (index === 0 && ((points.length - 1) === 0)) {
-    const elemtsearchId_out = context.container.querySelector(`#${id}`) as HTMLElement;
+    const elemtsearchId_out = context.container.querySelector(`#${outputNodeId}`) as HTMLElement;
     const elemtsearch = point;
 
     const eX = (elemtsearch.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom + rerouteWidth;
@@ -341,8 +350,7 @@ function calculateRerouteSegment(args: CalculateRerouteArgs): { path: string } {
     const line_y = elemtsearchOut.offsetHeight / 2 + (elemtsearchOut.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom;
     const pathOpen = create(line_x, line_y, eX, eY, 'open');
 
-    const id_search = point.parentElement!.classList[1].replace('node_in_', '');
-    const elemtsearchId = context.container.querySelector(`#${id_search}`) as HTMLElement;
+    const elemtsearchId = context.container.querySelector(`#${inputNodeId}`) as HTMLElement;
     const elemtsearchIn = elemtsearchId.querySelector<HTMLElement>(`.${point.parentElement!.classList[4]}`)!;
     const eXIn = elemtsearchIn.offsetWidth / 2 + (elemtsearchIn.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom;
     const eYIn = elemtsearchIn.offsetHeight / 2 + (elemtsearchIn.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom;
@@ -352,7 +360,7 @@ function calculateRerouteSegment(args: CalculateRerouteArgs): { path: string } {
   }
 
   if (index === 0) {
-    const elemtsearchId_out = context.container.querySelector(`#${id}`) as HTMLElement;
+    const elemtsearchId_out = context.container.querySelector(`#${outputNodeId}`) as HTMLElement;
     const elemtsearch = point;
 
     const eX = (elemtsearch.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom + rerouteWidth;
@@ -371,8 +379,7 @@ function calculateRerouteSegment(args: CalculateRerouteArgs): { path: string } {
   }
 
   if (index === (points.length - 1)) {
-    const id_search = point.parentElement!.classList[1].replace('node_in_', '');
-    const elemtsearchId = context.container.querySelector(`#${id_search}`) as HTMLElement;
+    const elemtsearchId = context.container.querySelector(`#${inputNodeId}`) as HTMLElement;
     const elemtsearchIn = elemtsearchId.querySelector<HTMLElement>(`.${point.parentElement!.classList[4]}`)!;
     const eXIn = elemtsearchIn.offsetWidth / 2 + (elemtsearchIn.getBoundingClientRect().x - precanvas.getBoundingClientRect().x) * precanvasWidthZoom;
     const eYIn = elemtsearchIn.offsetHeight / 2 + (elemtsearchIn.getBoundingClientRect().y - precanvas.getBoundingClientRect().y) * precanvasHeightZoom;
@@ -421,7 +428,6 @@ export function createReroutePoint(context: Drawflow, ele: Element): void {
   point.setAttributeNS(null, 'cy', pos_y.toString());
   point.setAttributeNS(null, 'r', context.reroute_width.toString());
 
-  let position_add_array_point = 0;
   const connectionElement = ele.parentElement!;
 
   const nodeId = nodeUpdate.slice(5);
@@ -447,7 +453,6 @@ export function createReroutePoint(context: Drawflow, ele: Element): void {
       connectionElement.appendChild(point);
     } else {
       const search_point = Array.from(connectionElement.children).indexOf(ele);
-      position_add_array_point = search_point;
       insertIndex = Math.min(search_point, connection.points.length);
       connectionElement.insertBefore(point, connectionElement.children[search_point + numberPoints + 1]);
     }
