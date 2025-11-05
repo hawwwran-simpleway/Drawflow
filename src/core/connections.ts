@@ -271,12 +271,16 @@ interface UpdateConnectionWithPointsArgs {
   zoom: number;
 }
 
+const ensureNodeDomId = (nodeId: string): string => (nodeId.startsWith('node-') ? nodeId : `node-${nodeId}`);
+
 function updateConnectionWithPoints(args: UpdateConnectionWithPointsArgs): void {
   const { context, element, outputNodeId, inputNodeId, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth, reroute_curvature,
     reroute_curvature_start_end, reroute_fix_curvature, curvature, zoom } = args;
   const points = element.querySelectorAll<SVGCircleElement>('.point');
   let linecurve = '';
   const reoute_fix: string[] = [];
+  const normalizedOutputNodeId = ensureNodeDomId(outputNodeId);
+  const normalizedInputNodeId = ensureNodeDomId(inputNodeId);
 
   points.forEach((point, i) => {
     const data = calculateRerouteSegment({
@@ -292,8 +296,8 @@ function updateConnectionWithPoints(args: UpdateConnectionWithPointsArgs): void 
       reroute_curvature_start_end,
       reroute_fix_curvature,
       zoom,
-      outputNodeId,
-      inputNodeId
+      outputNodeId: normalizedOutputNodeId,
+      inputNodeId: normalizedInputNodeId
     });
     linecurve += data.path;
     if (reroute_fix_curvature) {
