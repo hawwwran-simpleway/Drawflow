@@ -1,6 +1,25 @@
 import type Drawflow from './Drawflow';
 import type { DrawflowConnectionPoint } from './types';
 
+const calculateControlPoints = (
+  startX: number,
+  endX: number,
+  curvature: number
+): { hx1: number; hx2: number } => {
+  const deltaX = endX - startX;
+  if (deltaX === 0) {
+    return { hx1: startX, hx2: endX };
+  }
+
+  const direction = deltaX / Math.abs(deltaX);
+  const offset = Math.abs(deltaX) * curvature;
+
+  return {
+    hx1: startX + offset * direction,
+    hx2: endX - offset * direction,
+  };
+};
+
 export function createCurvature(
   context: Drawflow,
   start_pos_x: number,
@@ -8,41 +27,16 @@ export function createCurvature(
   end_pos_x: number,
   end_pos_y: number,
   curvature_value: number,
-  type: string
+  _type: string
 ): string {
   const line_x = start_pos_x;
   const line_y = start_pos_y;
   const x = end_pos_x;
   const y = end_pos_y;
   const curvature = curvature_value;
-  switch (type) {
-    case 'open':
-      if (start_pos_x >= end_pos_x) {
-        const hx1 = line_x + Math.abs(x - line_x) * curvature;
-        const hx2 = x - Math.abs(x - line_x) * (curvature * -1);
-        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
-      }
-      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
-    case 'close':
-      if (start_pos_x >= end_pos_x) {
-        const hx1 = line_x + Math.abs(x - line_x) * (curvature * -1);
-        const hx2 = x - Math.abs(x - line_x) * curvature;
-        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
-      }
-      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
-    case 'other':
-      if (start_pos_x >= end_pos_x) {
-        const hx1 = line_x + Math.abs(x - line_x) * (curvature * -1);
-        const hx2 = x - Math.abs(x - line_x) * (curvature * -1);
-        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
-      }
-      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
-    default: {
-      const hx1 = line_x + Math.abs(x - line_x) * curvature;
-      const hx2 = x - Math.abs(x - line_x) * curvature;
-      return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
-    }
-  }
+  const { hx1, hx2 } = calculateControlPoints(line_x, x, curvature);
+
+  return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
 }
 
 export function drawConnection(context: Drawflow, ele: HTMLElement): void {
