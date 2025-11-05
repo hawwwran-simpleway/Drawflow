@@ -196,8 +196,8 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
       const lineCurve = createCurvature(context, line_x, line_y, x, y, curvature, 'openclose');
       (element.children[0] as SVGPathElement).setAttributeNS(null, 'd', lineCurve);
     } else {
-      const outputNodeId = getOutputNodeIdFromClass(element.classList[2]);
-      const inputNodeId = getInputNodeIdFromClass(element.classList[1]);
+      const outputNodeId = getOutputNodeIdFromClassList(element.classList);
+      const inputNodeId = getInputNodeIdFromClassList(element.classList);
       updateConnectionWithPoints({
         context,
         element,
@@ -236,8 +236,8 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
       const lineCurve = createCurvature(context, line_x, line_y, x, y, curvature, 'openclose');
       (element.children[0] as SVGPathElement).setAttributeNS(null, 'd', lineCurve);
     } else {
-      const outputNodeId = getOutputNodeIdFromClass(element.classList[2]);
-      const inputNodeId = getInputNodeIdFromClass(element.classList[1]);
+      const outputNodeId = getOutputNodeIdFromClassList(element.classList);
+      const inputNodeId = getInputNodeIdFromClassList(element.classList);
       updateConnectionWithPoints({
         context,
         element,
@@ -276,9 +276,28 @@ const ensureNodeDomId = (nodeId: string): string => (nodeId.startsWith('node-') 
 const stripClassPrefix = (className: string, prefix: string): string =>
   (className.startsWith(prefix) ? className.slice(prefix.length) : className);
 
+const findClassWithPrefix = (classList: DOMTokenList, prefix: string): string | undefined =>
+  Array.from(classList).find((className) => className.startsWith(prefix));
+
 const getOutputNodeIdFromClass = (className: string): string => ensureNodeDomId(stripClassPrefix(className, 'node_out_'));
 
 const getInputNodeIdFromClass = (className: string): string => ensureNodeDomId(stripClassPrefix(className, 'node_in_'));
+
+const getOutputNodeIdFromClassList = (classList: DOMTokenList): string => {
+  const className = findClassWithPrefix(classList, 'node_out_');
+  if (!className) {
+    throw new Error('Connection element is missing a node_out_ class');
+  }
+  return getOutputNodeIdFromClass(className);
+};
+
+const getInputNodeIdFromClassList = (classList: DOMTokenList): string => {
+  const className = findClassWithPrefix(classList, 'node_in_');
+  if (!className) {
+    throw new Error('Connection element is missing a node_in_ class');
+  }
+  return getInputNodeIdFromClass(className);
+};
 
 function updateConnectionWithPoints(args: UpdateConnectionWithPointsArgs): void {
   const { context, element, outputNodeId, inputNodeId, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth, reroute_curvature,
