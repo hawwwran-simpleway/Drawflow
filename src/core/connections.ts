@@ -15,34 +15,76 @@ export function createCurvature(
   const x = end_pos_x;
   const y = end_pos_y;
   const curvature = curvature_value;
-  switch (type) {
-    case 'open':
-      if (start_pos_x >= end_pos_x) {
-        const hx1 = line_x + Math.abs(x - line_x) * curvature;
-        const hx2 = x - Math.abs(x - line_x) * (curvature * -1);
-        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
-      }
-      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
-    case 'close':
-      if (start_pos_x >= end_pos_x) {
-        const hx1 = line_x + Math.abs(x - line_x) * (curvature * -1);
-        const hx2 = x - Math.abs(x - line_x) * curvature;
-        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
-      }
-      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
-    case 'other':
-      if (start_pos_x >= end_pos_x) {
-        const hx1 = line_x + Math.abs(x - line_x) * (curvature * -1);
-        const hx2 = x - Math.abs(x - line_x) * (curvature * -1);
-        return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
-      }
-      return ` M ${line_x} ${line_y} C ${line_x + Math.abs(x - line_x) * curvature} ${line_y} ${x - Math.abs(x - line_x) * curvature} ${y} ${x}  ${y}`;
-    default: {
-      const hx1 = line_x + Math.abs(x - line_x) * curvature;
-      const hx2 = x - Math.abs(x - line_x) * curvature;
-      return ` M ${line_x} ${line_y} C ${hx1} ${line_y} ${hx2} ${y} ${x}  ${y}`;
+  const deltaX = x - line_x;
+  const deltaY = y - line_y;
+  const horizontalDistance = Math.abs(deltaX);
+
+  const { handleStartX, handleEndX } = (() => {
+    switch (type) {
+      case 'open':
+        if (start_pos_x >= end_pos_x) {
+          return {
+            handleStartX: line_x + horizontalDistance * curvature,
+            handleEndX: x - horizontalDistance * (curvature * -1)
+          };
+        }
+        return {
+          handleStartX: line_x + horizontalDistance * curvature,
+          handleEndX: x - horizontalDistance * curvature
+        };
+      case 'close':
+        if (start_pos_x >= end_pos_x) {
+          return {
+            handleStartX: line_x + horizontalDistance * (curvature * -1),
+            handleEndX: x - horizontalDistance * curvature
+          };
+        }
+        return {
+          handleStartX: line_x + horizontalDistance * curvature,
+          handleEndX: x - horizontalDistance * curvature
+        };
+      case 'other':
+        if (start_pos_x >= end_pos_x) {
+          return {
+            handleStartX: line_x + horizontalDistance * (curvature * -1),
+            handleEndX: x - horizontalDistance * (curvature * -1)
+          };
+        }
+        return {
+          handleStartX: line_x + horizontalDistance * curvature,
+          handleEndX: x - horizontalDistance * curvature
+        };
+      default:
+        return {
+          handleStartX: line_x + horizontalDistance * curvature,
+          handleEndX: x - horizontalDistance * curvature
+        };
     }
-  }
+  })();
+
+  const EPSILON = 1e-6;
+  const handleStartY = (() => {
+    if (Math.abs(deltaX) > EPSILON) {
+      const t = (handleStartX - line_x) / deltaX;
+      return line_y + deltaY * t;
+    }
+    return line_y + deltaY * curvature;
+  })();
+
+  const handleEndY = (() => {
+    if (Math.abs(deltaX) > EPSILON) {
+      const t = (x - handleEndX) / deltaX;
+      return y - deltaY * t;
+    }
+    return y - deltaY * curvature;
+  })();
+
+  const hx1 = handleStartX;
+  const hy1 = handleStartY;
+  const hx2 = handleEndX;
+  const hy2 = handleEndY;
+
+  return ` M ${line_x} ${line_y} C ${hx1} ${hy1} ${hx2} ${hy2} ${x}  ${y}`;
 }
 
 export function drawConnection(context: Drawflow, ele: HTMLElement): void {
