@@ -1,5 +1,6 @@
 import type Drawflow from './Drawflow';
 import type { DrawflowData } from './types';
+import { resetCanvasTransform } from './utils/canvas';
 
 export function getModuleFromNodeId(context: Drawflow, id: string): string | undefined {
   let nameModule: string | undefined;
@@ -33,9 +34,7 @@ export function changeModule(context: Drawflow, name: string): void {
   context.mouse_y = 0;
   context.zoom = 1;
   context.zoom_last_value = 1;
-  if (context.precanvas) {
-    context.precanvas.style.transform = '';
-  }
+  resetCanvasTransform(context);
   context.import(context.drawflow, false);
 }
 

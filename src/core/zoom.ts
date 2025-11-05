@@ -1,4 +1,5 @@
 import type Drawflow from './Drawflow';
+import { applyStoredCanvasTranslation } from './utils/canvas';
 
 export function zoom_enter(context: Drawflow, event: WheelEvent): void {
   if (event.ctrlKey) {
@@ -16,9 +17,7 @@ export function zoom_refresh(context: Drawflow): void {
   context.canvas_x = (context.canvas_x / context.zoom_last_value) * context.zoom;
   context.canvas_y = (context.canvas_y / context.zoom_last_value) * context.zoom;
   context.zoom_last_value = context.zoom;
-  if (context.precanvas) {
-    context.precanvas.style.transform = `translate(${context.canvas_x}px, ${context.canvas_y}px) scale(${context.zoom})`;
-  }
+  applyStoredCanvasTranslation(context);
 }
 
 export function zoom_in(context: Drawflow): void {
