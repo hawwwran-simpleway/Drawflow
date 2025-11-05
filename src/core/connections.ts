@@ -196,8 +196,8 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
       const lineCurve = createCurvature(context, line_x, line_y, x, y, curvature, 'openclose');
       (element.children[0] as SVGPathElement).setAttributeNS(null, 'd', lineCurve);
     } else {
-      const outputNodeId = element.classList[2].slice(9);
-      const inputNodeId = element.classList[1].slice(13);
+      const outputNodeId = getOutputNodeIdFromClass(element.classList[2]);
+      const inputNodeId = getInputNodeIdFromClass(element.classList[1]);
       updateConnectionWithPoints({
         context,
         element,
@@ -236,8 +236,8 @@ export function updateConnectionNodes(context: Drawflow, id: string): void {
       const lineCurve = createCurvature(context, line_x, line_y, x, y, curvature, 'openclose');
       (element.children[0] as SVGPathElement).setAttributeNS(null, 'd', lineCurve);
     } else {
-      const outputNodeId = element.classList[2].slice(9);
-      const inputNodeId = element.classList[1].slice(13);
+      const outputNodeId = getOutputNodeIdFromClass(element.classList[2]);
+      const inputNodeId = getInputNodeIdFromClass(element.classList[1]);
       updateConnectionWithPoints({
         context,
         element,
@@ -272,6 +272,13 @@ interface UpdateConnectionWithPointsArgs {
 }
 
 const ensureNodeDomId = (nodeId: string): string => (nodeId.startsWith('node-') ? nodeId : `node-${nodeId}`);
+
+const stripClassPrefix = (className: string, prefix: string): string =>
+  (className.startsWith(prefix) ? className.slice(prefix.length) : className);
+
+const getOutputNodeIdFromClass = (className: string): string => ensureNodeDomId(stripClassPrefix(className, 'node_out_'));
+
+const getInputNodeIdFromClass = (className: string): string => ensureNodeDomId(stripClassPrefix(className, 'node_in_'));
 
 function updateConnectionWithPoints(args: UpdateConnectionWithPointsArgs): void {
   const { context, element, outputNodeId, inputNodeId, precanvasWidthZoom, precanvasHeightZoom, rerouteWidth, reroute_curvature,
