@@ -1,4 +1,5 @@
 import type Drawflow from '../Drawflow';
+import { applyCanvasTranslation, applyStoredCanvasTranslation } from '../utils/canvas';
 
 const hasWindow = typeof window !== 'undefined';
 const requestFrame = hasWindow && typeof window.requestAnimationFrame === 'function'
@@ -219,9 +220,7 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
     const x = context.canvas_x + (-(context.pos_x - e_pos_x));
     const y = context.canvas_y + (-(context.pos_y - e_pos_y));
     context.dispatch('translate', { x, y });
-    if (context.precanvas) {
-      context.precanvas.style.transform = `translate(${x}px, ${y}px) scale(${context.zoom})`;
-    }
+    applyCanvasTranslation(context, x, y);
   }
   if (context.drag && context.ele_selected) {
     e.preventDefault();
@@ -505,7 +504,7 @@ function performAutoPan(context: Drawflow): void {
 
   context.canvas_x += stepX;
   context.canvas_y += stepY;
-  context.precanvas.style.transform = `translate(${context.canvas_x}px, ${context.canvas_y}px) scale(${context.zoom})`;
+  applyStoredCanvasTranslation(context);
 
   if (context.autoPanMode === 'node') {
     adjustDraggedNodeDuringAutoPan(context, stepX, stepY);
