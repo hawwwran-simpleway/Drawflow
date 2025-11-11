@@ -27,6 +27,14 @@ export interface WirelessEndpointOption extends DrawflowWirelessPortReference {
   label: string;
 }
 
+interface DialogSelectOption {
+  value: string;
+  label: string;
+  kind: 'endpoint' | 'name';
+  name: string;
+  endpoint?: WirelessEndpointOption;
+}
+
 interface DialogSelectionResult {
   selectedId?: string;
   name?: string;
@@ -170,6 +178,59 @@ function isWirelessNameUsedByAnotherOutput(
       return portName === normalized;
     });
   });
+}
+
+function listWirelessNamePool(
+  context: Drawflow,
+  ref: DrawflowWirelessPortReference,
+  existingName: string | null,
+): string[] {
+  const moduleData = getModuleData(context, ref.nodeId);
+  if (!moduleData) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  const considerName = (name: string | null) => {
+    if (!name) {
+      return;
+    }
+    const trimmed = name.trim();
+    if (trimmed === '') {
+      return;
+    }
+    if (seen.has(trimmed)) {
+      return;
+    }
+    seen.add(trimmed);
+    if (ref.type === 'output' && isWirelessNameUsedByAnotherOutput(context, ref, trimmed)) {
+      return;
+    }
+    result.push(trimmed);
+  };
+
+  Object.values(moduleData).forEach((node) => {
+    const inputs = node.inputs ?? {};
+    Object.values(inputs).forEach((port) => {
+      considerName(resolvePortWirelessName(port));
+    });
+    const outputs = node.outputs ?? {};
+    Object.values(outputs).forEach((port) => {
+      considerName(resolvePortWirelessName(port));
+    });
+  });
+
+  if (existingName && existingName.trim() !== '') {
+    const trimmedExisting = existingName.trim();
+    if (!seen.has(trimmedExisting)) {
+      seen.add(trimmedExisting);
+      result.push(trimmedExisting);
+    }
+  }
+
+  return result;
 }
 
 export function getPortWirelessName(context: Drawflow, ref: DrawflowWirelessPortReference): string | null {
@@ -365,11 +426,68 @@ export function listAvailableOppositeEndpoints(context: Drawflow, ref: DrawflowW
   return options;
 }
 
-function findEndpointOption(options: WirelessEndpointOption[], identifier?: string): WirelessEndpointOption | undefined {
+const encodeEndpointValue = (nodeId: string, portClass: string): string => {
+  return `endpoint|${nodeId}|${portClass}`;
+};
+
+const encodeNameValue = (name: string): string => {
+  return `name|${encodeURIComponent(name)}`;
+};
+
+const findEndpointOption = (
+  options: WirelessEndpointOption[],
+  identifier?: string,
+): WirelessEndpointOption | undefined => {
+  if (!identifier || !identifier.startsWith('endpoint|')) {
+    return undefined;
+  }
+  const [, nodeId, portClass] = identifier.split('|');
+  if (!nodeId || !portClass) {
+    return undefined;
+  }
+  return options.find((option) => option.nodeId === nodeId && option.portClass === portClass);
+};
+
+const findSelectOption = (
+  options: DialogSelectOption[],
+  identifier?: string,
+): DialogSelectOption | undefined => {
   if (!identifier) {
     return undefined;
   }
-  return options.find((option) => `${option.nodeId}|${option.portClass}` === identifier);
+  return options.find((option) => option.value === identifier);
+};
+
+function buildDialogSelectOptions(
+  context: Drawflow,
+  ref: DrawflowWirelessPortReference,
+  existingName: string | null,
+  endpoints: WirelessEndpointOption[],
+): DialogSelectOption[] {
+  const selectOptions: DialogSelectOption[] = endpoints.map((option) => ({
+    value: encodeEndpointValue(option.nodeId, option.portClass),
+    label: option.label,
+    kind: 'endpoint',
+    name: option.name,
+    endpoint: option,
+  }));
+
+  const endpointNames = new Set(selectOptions.map((option) => option.name));
+  const pool = listWirelessNamePool(context, ref, existingName).sort((a, b) => a.localeCompare(b));
+
+  pool.forEach((name) => {
+    if (endpointNames.has(name)) {
+      return;
+    }
+    selectOptions.push({
+      value: encodeNameValue(name),
+      label: name,
+      kind: 'name',
+      name,
+    });
+  });
+
+  return selectOptions;
 }
 
 function connectWirelessPorts(context: Drawflow, origin: DrawflowWirelessPortReference, target: WirelessEndpointOption, signal: string): void {
@@ -394,12 +512,11 @@ function autoConnectByName(context: Drawflow, ref: DrawflowWirelessPortReference
   }
 }
 
-function buildDialogHtml(existingName: string | null, options: WirelessEndpointOption[]): string {
+function buildDialogHtml(existingName: string | null, options: DialogSelectOption[]): string {
   const escapedValue = existingName ? escapeHtml(existingName) : '';
   const selectOptions = options
     .map((option) => {
-      const value = `${option.nodeId}|${option.portClass}`;
-      return `<option value="${escapeHtml(value)}">${escapeHtml(option.label)}</option>`;
+      return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
     })
     .join('');
   return `
@@ -431,9 +548,13 @@ function shouldShowRemoveButton(context: Drawflow, ref: DrawflowWirelessPortRefe
   return buildWirelessConnections(context, ref).length > 0;
 }
 
-async function openDialog(context: Drawflow, ref: DrawflowWirelessPortReference): Promise<DialogSelectionResult | 'remove' | null> {
-  const existingName = getPortWirelessName(context, ref);
-  const options = listAvailableOppositeEndpoints(context, ref);
+async function openDialog(
+  context: Drawflow,
+  ref: DrawflowWirelessPortReference,
+  existingName: string | null,
+  endpoints: WirelessEndpointOption[],
+  selectOptions: DialogSelectOption[],
+): Promise<DialogSelectionResult | 'remove' | null> {
   const modal = await getSwal();
   if (!modal) {
     return null;
@@ -441,7 +562,7 @@ async function openDialog(context: Drawflow, ref: DrawflowWirelessPortReference)
 
   const result = await modal.fire({
     title: ref.type === 'input' ? 'Configure input signal' : 'Configure output signal',
-    html: buildDialogHtml(existingName, options),
+    html: buildDialogHtml(existingName, selectOptions),
     focusConfirm: false,
     showCancelButton: true,
     confirmButtonText: 'Save',
@@ -449,18 +570,24 @@ async function openDialog(context: Drawflow, ref: DrawflowWirelessPortReference)
     denyButtonText: 'Remove name',
     preConfirm: () => {
       const selection = readDialogSelection();
-      if (ref.type === 'output') {
-        const selectedOption = findEndpointOption(options, selection.selectedId);
-        const candidateName = selectedOption?.name ?? selection.name ?? '';
-        if (candidateName.trim() !== '' && isWirelessNameUsedByAnotherOutput(context, ref, candidateName)) {
-          modal.showValidationMessage?.('Signal name is already used by another output.');
-          return false;
+      const selectedOption = findSelectOption(selectOptions, selection.selectedId);
+      if (selectedOption) {
+        if (selectedOption.kind === 'name') {
+          selection.name = selectedOption.name;
+        } else if (!selection.name || selection.name.trim() === '') {
+          selection.name = selectedOption.name;
         }
       }
-      if (selection.selectedId && selection.name) {
+      const candidateName = selection.name?.trim() ?? '';
+      if (ref.type === 'output' && candidateName !== '' && isWirelessNameUsedByAnotherOutput(context, ref, candidateName)) {
+        modal.showValidationMessage?.('Signal name is already used by another output.');
+        return false;
+      }
+      selection.name = candidateName;
+      if (selection.selectedId && candidateName !== '') {
         return selection;
       }
-      if (selection.selectedId || (selection.name && selection.name.trim() !== '')) {
+      if (selection.selectedId || candidateName !== '') {
         return selection;
       }
       return { selectedId: '', name: existingName ?? '' };
@@ -503,8 +630,10 @@ function applySelection(
 }
 
 export async function openWirelessDialog(context: Drawflow, ref: DrawflowWirelessPortReference): Promise<void> {
+  const existingName = getPortWirelessName(context, ref);
   const optionsSnapshot = listAvailableOppositeEndpoints(context, ref);
-  const selection = await openDialog(context, ref);
+  const selectOptions = buildDialogSelectOptions(context, ref, existingName, optionsSnapshot);
+  const selection = await openDialog(context, ref, existingName, optionsSnapshot, selectOptions);
   applySelection(context, ref, selection, optionsSnapshot);
 }
 
