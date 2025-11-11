@@ -36,6 +36,7 @@ const hasWindow = typeof window !== 'undefined';
 
 type SwalLike = {
   fire: (options: any) => Promise<any>;
+  showValidationMessage?: (message: string) => void;
 };
 
 const isSwalLike = (candidate: unknown): candidate is SwalLike => {
@@ -129,6 +130,46 @@ function resolvePortWirelessName(port: DrawflowInputPort | DrawflowOutputPort): 
   }
   const connectionWithSignal = port.connections.find((connection) => typeof connection.signal === 'string' && connection.signal.trim() !== '');
   return connectionWithSignal?.signal ?? null;
+}
+
+function isSamePort(
+  ref: DrawflowWirelessPortReference,
+  candidateNodeId: number | string,
+  candidatePortClass: string,
+  candidateType: DrawflowPortType,
+): boolean {
+  if (ref.type !== candidateType) {
+    return false;
+  }
+  if (candidateType === 'input' || candidateType === 'output') {
+    return ref.nodeId === candidateNodeId.toString() && ref.portClass === candidatePortClass;
+  }
+  return false;
+}
+
+function isWirelessNameUsedByAnotherOutput(
+  context: Drawflow,
+  ref: DrawflowWirelessPortReference,
+  name: string,
+): boolean {
+  const moduleData = getModuleData(context, ref.nodeId);
+  if (!moduleData) {
+    return false;
+  }
+  const normalized = name.trim();
+  if (normalized === '') {
+    return false;
+  }
+  return Object.values(moduleData).some((node) => {
+    const outputs = node.outputs ?? {};
+    return Object.entries(outputs).some(([portClass, portData]) => {
+      if (isSamePort(ref, node.id, portClass, 'output')) {
+        return false;
+      }
+      const portName = resolvePortWirelessName(portData);
+      return portName === normalized;
+    });
+  });
 }
 
 export function getPortWirelessName(context: Drawflow, ref: DrawflowWirelessPortReference): string | null {
@@ -303,10 +344,13 @@ export function listAvailableOppositeEndpoints(context: Drawflow, ref: DrawflowW
   const oppositeType: DrawflowPortType = ref.type === 'input' ? 'output' : 'input';
   const options: WirelessEndpointOption[] = [];
   Object.values(moduleData).forEach((node) => {
-    const ports = oppositeType === 'input' ? node.inputs : node.outputs;
+    const ports = (oppositeType === 'input' ? node.inputs : node.outputs) ?? {};
     Object.entries(ports).forEach(([portClass, portData]) => {
       const name = resolvePortWirelessName(portData);
       if (!name || portData.connections.length > 0) {
+        return;
+      }
+      if (ref.type === 'output' && isWirelessNameUsedByAnotherOutput(context, ref, name)) {
         return;
       }
       options.push({
@@ -405,6 +449,14 @@ async function openDialog(context: Drawflow, ref: DrawflowWirelessPortReference)
     denyButtonText: 'Remove name',
     preConfirm: () => {
       const selection = readDialogSelection();
+      if (ref.type === 'output') {
+        const selectedOption = findEndpointOption(options, selection.selectedId);
+        const candidateName = selectedOption?.name ?? selection.name ?? '';
+        if (candidateName.trim() !== '' && isWirelessNameUsedByAnotherOutput(context, ref, candidateName)) {
+          modal.showValidationMessage?.('Signal name is already used by another output.');
+          return false;
+        }
+      }
       if (selection.selectedId && selection.name) {
         return selection;
       }
