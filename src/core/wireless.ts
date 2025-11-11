@@ -7,8 +7,10 @@ import type {
 } from './types';
 
 const LABEL_CLASS = 'df-wireless-label';
+const LABEL_CONNECTED_CLASS = 'df-wireless-label--connected';
 const WIRELESS_PORT_CLASS = 'has-wireless';
 const LABEL_ID_PREFIX = 'df-wireless-label-';
+const WIRELESS_CONNECTED_ATTRIBUTE = 'data-wireless-connected';
 const MOVE_THRESHOLD = 5;
 
 interface WirelessConnectionDescriptor {
@@ -140,25 +142,65 @@ function clearLabelElement(portElement: HTMLElement): void {
   }
 }
 
+function hasActiveWirelessConnection(
+  port: DrawflowInputPort | DrawflowOutputPort | null,
+  signal?: string,
+): boolean {
+  if (!port) {
+    return false;
+  }
+  const expectedSignal = signal?.trim();
+  return port.connections.some((connection) => {
+    if (typeof connection.signal !== 'string') {
+      return false;
+    }
+    const candidate = connection.signal.trim();
+    if (candidate === '') {
+      return false;
+    }
+    if (expectedSignal) {
+      return candidate === expectedSignal;
+    }
+    return true;
+  });
+}
+
+function applyConnectionState(
+  portElement: HTMLElement,
+  label: HTMLElement,
+  port: DrawflowInputPort | DrawflowOutputPort | null,
+  signal: string,
+): void {
+  const isConnected = hasActiveWirelessConnection(port, signal);
+  label.classList.toggle(LABEL_CONNECTED_CLASS, isConnected);
+  if (isConnected) {
+    portElement.setAttribute(WIRELESS_CONNECTED_ATTRIBUTE, 'true');
+  } else {
+    portElement.removeAttribute(WIRELESS_CONNECTED_ATTRIBUTE);
+  }
+}
+
 export function setPortWirelessName(context: Drawflow, ref: DrawflowWirelessPortReference, name: string | null): void {
   const port = getPortData(context, ref);
+  const normalized = typeof name === 'string' ? name.trim() : '';
   if (port) {
-    port.wireless = name && name.trim() !== '' ? name : null;
+    port.wireless = normalized !== '' ? normalized : null;
   }
   const element = getPortElement(context, ref);
   if (!element) {
     return;
   }
-  if (name && name.trim() !== '') {
-    const normalizedName = name.trim();
+  if (normalized !== '') {
     const label = ensureLabelElement(element);
-    label.textContent = normalizedName;
-    label.setAttribute('title', normalizedName);
+    label.textContent = normalized;
+    label.setAttribute('title', normalized);
     element.classList.add(WIRELESS_PORT_CLASS);
-    element.setAttribute('data-wireless', normalizedName);
+    element.setAttribute('data-wireless', normalized);
+    applyConnectionState(element, label, port, normalized);
   } else {
     element.classList.remove(WIRELESS_PORT_CLASS);
     element.removeAttribute('data-wireless');
+    element.removeAttribute(WIRELESS_CONNECTED_ATTRIBUTE);
     clearLabelElement(element);
   }
 }

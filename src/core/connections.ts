@@ -1,5 +1,6 @@
 import type Drawflow from './Drawflow';
 import type { DrawflowConnectionPoint } from './types';
+import { setPortWirelessName } from './wireless';
 import {
   ensureNodeDomId,
   extractConnectionClassInfo,
@@ -964,6 +965,18 @@ export function removeSingleConnection(
   context.drawflow.drawflow[nodeOneModule!].data[id_input].inputs[input_class].connections.splice(index_in, 1);
 
   context.dispatch('connectionRemoved', { output_id: id_output, input_id: id_input, output_class, input_class });
+  const moduleData = context.drawflow.drawflow[nodeOneModule!].data;
+  const outputPort = moduleData[id_output]?.outputs?.[output_class];
+  const inputPort = moduleData[id_input]?.inputs?.[input_class];
+  const outputName = outputPort?.wireless;
+  const inputName = inputPort?.wireless;
+
+  if (outputName) {
+    setPortWirelessName(context, { nodeId: id_output, portClass: output_class, type: 'output' }, outputName);
+  }
+  if (inputName) {
+    setPortWirelessName(context, { nodeId: id_input, portClass: input_class, type: 'input' }, inputName);
+  }
   return true;
 }
 
