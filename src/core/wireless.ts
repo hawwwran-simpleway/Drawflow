@@ -1,3 +1,4 @@
+import Swal from 'sweetalert2';
 import type Drawflow from './Drawflow';
 import type {
   DrawflowInputPort,
@@ -41,7 +42,28 @@ const isSwalLike = (candidate: unknown): candidate is SwalLike => {
   return !!candidate && typeof (candidate as SwalLike).fire === 'function';
 };
 
-let swalPromise: Promise<SwalLike | null> | null = null;
+let cachedImportedSwal: SwalLike | null | undefined;
+
+const resolveImportedSwal = (): SwalLike | null => {
+  if (cachedImportedSwal !== undefined) {
+    return cachedImportedSwal;
+  }
+
+  const directCandidate = Swal as unknown;
+  if (isSwalLike(directCandidate)) {
+    cachedImportedSwal = directCandidate;
+    return cachedImportedSwal;
+  }
+
+  const defaultCandidate = (directCandidate as { default?: unknown }).default;
+  if (isSwalLike(defaultCandidate)) {
+    cachedImportedSwal = defaultCandidate;
+    return cachedImportedSwal;
+  }
+
+  cachedImportedSwal = null;
+  return cachedImportedSwal;
+};
 
 const getSwal = async (): Promise<SwalLike | null> => {
   if (!hasWindow) {
@@ -51,19 +73,11 @@ const getSwal = async (): Promise<SwalLike | null> => {
   if (isSwalLike(existing)) {
     return existing;
   }
-  if (!swalPromise) {
-    swalPromise = import('sweetalert2')
-      .then((module) => {
-        const instance = (module as any).default ?? module;
-        if (!isSwalLike(instance)) {
-          return null;
-        }
-        (window as any).Swal = instance;
-        return instance;
-      })
-      .catch(() => null);
+  const resolved = resolveImportedSwal();
+  if (resolved) {
+    (window as any).Swal = resolved;
   }
-  return swalPromise;
+  return resolved;
 };
 
 const escapeHtml = (value: string): string => {
