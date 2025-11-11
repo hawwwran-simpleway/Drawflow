@@ -1,5 +1,6 @@
 import type Drawflow from '../Drawflow';
 import { applyCanvasTranslation, applyStoredCanvasTranslation } from '../utils/canvas';
+import { extractConnectionClassInfo, findClassWithPrefix } from '../utils/classNames';
 
 const hasWindow = typeof window !== 'undefined';
 const requestFrame = hasWindow && typeof window.requestAnimationFrame === 'function'
@@ -17,7 +18,7 @@ export function click(context: Drawflow, e: MouseEvent | TouchEvent): void {
   }
 
   if (context.editor_mode === 'fixed') {
-    if (target.classList[0] === 'parent-drawflow' || target.classList[0] === 'drawflow') {
+    if (target.classList.contains('parent-drawflow') || target.classList.contains('drawflow')) {
       context.ele_selected = target.closest('.parent-drawflow') as HTMLElement;
       e.preventDefault();
     } else {
@@ -45,45 +46,44 @@ export function click(context: Drawflow, e: MouseEvent | TouchEvent): void {
     return;
   }
 
-  switch (context.ele_selected.classList[0]) {
-    case 'drawflow-node':
-      handleNodeSelected(context);
-      break;
-    case 'output':
-    case 'input':
-      handlePortSelected(context, context.ele_selected);
-      break;
-    case 'parent-drawflow':
-    case 'drawflow':
-      handleEditorSelected(context);
-      break;
-    case 'main-path':
-      handleConnectionSelected(context);
-      break;
-    case 'point':
-      context.drag_point = true;
-      context.ele_selected.classList.add('selected');
-      break;
-    case 'drawflow-delete':
-      if (context.node_selected) {
-        context.removeNodeId(context.node_selected.id);
-      }
-      if (context.connection_selected) {
-        context.removeConnection();
-      }
-      if (context.node_selected) {
-        context.node_selected.classList.remove('selected');
-        context.node_selected = null;
-        context.dispatch('nodeUnselected', true);
-      }
-      if (context.connection_selected) {
-        context.connection_selected.classList.remove('selected');
-        context.removeReouteConnectionSelected();
-        context.connection_selected = null;
-      }
-      break;
-    default:
-      break;
+  const selectedElement = context.ele_selected;
+  const selectedClasses = selectedElement.classList;
+  const isNode = selectedClasses.contains('drawflow-node');
+  const isOutput = selectedClasses.contains('output');
+  const isInput = selectedClasses.contains('input');
+  const isEditor = selectedClasses.contains('parent-drawflow') || selectedClasses.contains('drawflow');
+  const isMainPath = selectedClasses.contains('main-path');
+  const isPoint = selectedClasses.contains('point');
+  const isDeleteAction = selectedClasses.contains('drawflow-delete');
+
+  if (isNode) {
+    handleNodeSelected(context);
+  } else if (isOutput || isInput) {
+    handlePortSelected(context, selectedElement);
+  } else if (isEditor) {
+    handleEditorSelected(context);
+  } else if (isMainPath) {
+    handleConnectionSelected(context);
+  } else if (isPoint) {
+    context.drag_point = true;
+    selectedElement.classList.add('selected');
+  } else if (isDeleteAction) {
+    if (context.node_selected) {
+      context.removeNodeId(context.node_selected.id);
+    }
+    if (context.connection_selected) {
+      context.removeConnection();
+    }
+    if (context.node_selected) {
+      context.node_selected.classList.remove('selected');
+      context.node_selected = null;
+      context.dispatch('nodeUnselected', true);
+    }
+    if (context.connection_selected) {
+      context.connection_selected.classList.remove('selected');
+      context.removeReouteConnectionSelected();
+      context.connection_selected = null;
+    }
   }
 
   if (e.type === 'touchstart') {
@@ -102,8 +102,7 @@ export function click(context: Drawflow, e: MouseEvent | TouchEvent): void {
     context.pos_y_start = mouseEvent.clientY;
   }
 
-  const primaryClass = context.ele_selected.classList[0];
-  if (['input', 'output', 'main-path'].includes(primaryClass)) {
+  if (isInput || isOutput || isMainPath) {
     e.preventDefault();
   }
   context.dispatch('clickEnd', e);
@@ -179,16 +178,20 @@ function handleConnectionSelected(context: Drawflow): void {
   }
   context.connection_selected = context.ele_selected as HTMLElement;
   context.connection_selected.classList.add('selected');
-  const listclassConnection = context.connection_selected.parentElement?.classList;
-  if (listclassConnection && listclassConnection.length > 1) {
+  const connectionElement = context.connection_selected.parentElement as HTMLElement | null;
+  if (!connectionElement) {
+    return;
+  }
+  const connectionInfo = extractConnectionClassInfo(connectionElement.classList);
+  if (connectionInfo) {
     context.dispatch('connectionSelected', {
-      output_id: listclassConnection[2].slice(14),
-      input_id: listclassConnection[1].slice(13),
-      output_class: listclassConnection[3],
-      input_class: listclassConnection[4]
+      output_id: connectionInfo.outputNodeId,
+      input_id: connectionInfo.inputNodeId,
+      output_class: connectionInfo.outputPortClass,
+      input_class: connectionInfo.inputPortClass,
     });
     if (context.reroute_fix_curvature) {
-      context.connection_selected.parentElement?.querySelectorAll('.main-path').forEach((item) => {
+      connectionElement.querySelectorAll('.main-path').forEach((item) => {
         item.classList.add('selected');
       });
     }
@@ -253,33 +256,45 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
     context.ele_selected.setAttributeNS(null, 'cx', pos_x.toString());
     context.ele_selected.setAttributeNS(null, 'cy', pos_y.toString());
 
-    const nodeUpdate = context.ele_selected.parentElement!.classList[2].slice(9);
-    const nodeUpdateIn = context.ele_selected.parentElement!.classList[1].slice(13);
-    const output_class = context.ele_selected.parentElement!.classList[3];
-    const input_class = context.ele_selected.parentElement!.classList[4];
+    const connectionElement = context.ele_selected.parentElement as HTMLElement | null;
+    if (!connectionElement) {
+      return;
+    }
 
-    let numberPointPosition = Array.from(context.ele_selected.parentElement!.children).indexOf(context.ele_selected) - 1;
+    const connectionInfo = extractConnectionClassInfo(connectionElement.classList);
+    if (!connectionInfo) {
+      return;
+    }
+
+    const {
+      outputNodeDomId,
+      outputNodeId,
+      inputNodeId,
+      outputPortClass,
+      inputPortClass,
+    } = connectionInfo;
+
+    let numberPointPosition = Array.from(connectionElement.children).indexOf(context.ele_selected) - 1;
 
     if (context.reroute_fix_curvature) {
-      const numberMainPath = context.ele_selected.parentElement!.querySelectorAll('.main-path').length - 1;
+      const numberMainPath = connectionElement.querySelectorAll('.main-path').length - 1;
       numberPointPosition -= numberMainPath;
       if (numberPointPosition < 0) {
         numberPointPosition = 0;
       }
     }
 
-    const nodeId = nodeUpdate.slice(5);
-    const searchConnection = context.drawflow.drawflow[context.module].data[nodeId].outputs[output_class].connections.findIndex((item) => {
-      return item.node === nodeUpdateIn && item.output === input_class;
+    const nodeId = outputNodeId;
+    const searchConnection = context.drawflow.drawflow[context.module].data[nodeId].outputs[outputPortClass].connections.findIndex((item) => {
+      return item.node === inputNodeId && item.output === inputPortClass;
     });
 
-    context.drawflow.drawflow[context.module].data[nodeId].outputs[output_class].connections[searchConnection].points![numberPointPosition] = {
+    context.drawflow.drawflow[context.module].data[nodeId].outputs[outputPortClass].connections[searchConnection].points![numberPointPosition] = {
       pos_x,
       pos_y
     };
 
-    const parentSelected = context.ele_selected.parentElement!.classList[2].slice(9);
-    context.updateConnectionNodes(parentSelected);
+    context.updateConnectionNodes(outputNodeDomId);
   }
 
   if (e.type === 'touchmove') {
@@ -314,7 +329,11 @@ export function dragEnd(context: Drawflow, e: MouseEvent | TouchEvent): void {
   if (context.drag_point && context.ele_selected) {
     context.ele_selected.classList.remove('selected');
     if (context.pos_x_start !== e_pos_x || context.pos_y_start !== e_pos_y) {
-      context.dispatch('rerouteMoved', context.ele_selected.parentElement!.classList[2].slice(14));
+      const connectionElement = context.ele_selected.parentElement as HTMLElement | null;
+      const connectionInfo = connectionElement ? extractConnectionClassInfo(connectionElement.classList) : null;
+      if (connectionInfo) {
+        context.dispatch('rerouteMoved', connectionInfo.outputNodeId);
+      }
     }
   }
 
@@ -346,11 +365,12 @@ function handleConnectionDrop(context: Drawflow, ele_last: HTMLElement | null): 
     return;
   }
 
-  const targetIsOutput = ele_last.classList[0] === 'output';
-  const targetIsInput = ele_last.classList[0] === 'input';
+  const targetIsOutput = ele_last.classList.contains('output');
+  const targetIsInput = ele_last.classList.contains('input');
+  const targetIsNode = ele_last.classList.contains('drawflow-node');
   const sourceIsInput = context.ele_selected!.classList.contains('input');
 
-  if (targetIsInput || targetIsOutput || ele_last.closest('.drawflow_content_node') != null || ele_last.classList[0] === 'drawflow-node') {
+  if (targetIsInput || targetIsOutput || ele_last.closest('.drawflow_content_node') != null || targetIsNode) {
     let input_id: string | undefined;
     let input_class: string | undefined;
     let output_id: string | undefined;
@@ -358,18 +378,18 @@ function handleConnectionDrop(context: Drawflow, ele_last: HTMLElement | null): 
 
     if (sourceIsInput && targetIsOutput) {
       input_id = context.ele_selected!.parentElement!.parentElement!.id;
-      input_class = context.ele_selected!.classList[1];
+      input_class = findClassWithPrefix(context.ele_selected!.classList, 'input_');
       output_id = ele_last.parentElement!.parentElement!.id;
-      output_class = ele_last.classList[1];
+      output_class = findClassWithPrefix(ele_last.classList, 'output_');
     } else if (!sourceIsInput && (targetIsInput || ele_last.closest('.drawflow_content_node'))) {
       const container = ele_last.closest('.drawflow_content_node');
       input_id = container ? container.parentElement!.id : ele_last.parentElement!.parentElement!.id;
-      input_class = targetIsInput ? ele_last.classList[1] : 'input_1';
+      input_class = targetIsInput ? findClassWithPrefix(ele_last.classList, 'input_') : 'input_1';
       output_id = context.ele_selected!.parentElement!.parentElement!.id;
-      output_class = context.ele_selected!.classList[1];
+      output_class = findClassWithPrefix(context.ele_selected!.classList, 'output_');
     }
 
-    if (input_id && output_id && input_id !== output_id) {
+    if (input_id && output_id && input_id !== output_id && input_class && output_class) {
       const outputNode = context.drawflow.drawflow[context.module].data[output_id.slice(5)];
       const inputNode = context.drawflow.drawflow[context.module].data[input_id.slice(5)];
 
