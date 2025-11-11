@@ -33,12 +33,37 @@ interface DialogSelectionResult {
 
 const hasWindow = typeof window !== 'undefined';
 
-const getSwal = (): any | null => {
+type SwalLike = {
+  fire: (options: any) => Promise<any>;
+};
+
+const isSwalLike = (candidate: unknown): candidate is SwalLike => {
+  return !!candidate && typeof (candidate as SwalLike).fire === 'function';
+};
+
+let swalPromise: Promise<SwalLike | null> | null = null;
+
+const getSwal = async (): Promise<SwalLike | null> => {
   if (!hasWindow) {
     return null;
   }
-  const candidate = (window as any).Swal;
-  return candidate && typeof candidate.fire === 'function' ? candidate : null;
+  const existing = (window as any).Swal;
+  if (isSwalLike(existing)) {
+    return existing;
+  }
+  if (!swalPromise) {
+    swalPromise = import('sweetalert2')
+      .then((module) => {
+        const instance = (module as any).default ?? module;
+        if (!isSwalLike(instance)) {
+          return null;
+        }
+        (window as any).Swal = instance;
+        return instance;
+      })
+      .catch(() => null);
+  }
+  return swalPromise;
 };
 
 const escapeHtml = (value: string): string => {
@@ -351,24 +376,9 @@ function shouldShowRemoveButton(context: Drawflow, ref: DrawflowWirelessPortRefe
 async function openDialog(context: Drawflow, ref: DrawflowWirelessPortReference): Promise<DialogSelectionResult | 'remove' | null> {
   const existingName = getPortWirelessName(context, ref);
   const options = listAvailableOppositeEndpoints(context, ref);
-  const modal = getSwal();
+  const modal = await getSwal();
   if (!modal) {
-    if (!hasWindow) {
-      return null;
-    }
-    const availableNames = options.map((option) => option.name).join(', ');
-    const promptMessage = availableNames
-      ? `Enter a signal name. Available names: ${availableNames}`
-      : 'Enter a signal name.';
-    const response = window.prompt(promptMessage, existingName ?? '');
-    if (response === null) {
-      return null;
-    }
-    const trimmed = response.trim();
-    if (trimmed === '' && existingName) {
-      return 'remove';
-    }
-    return { name: trimmed || undefined };
+    return null;
   }
 
   const result = await modal.fire({
