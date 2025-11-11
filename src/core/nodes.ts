@@ -1,5 +1,6 @@
 import type Drawflow from './Drawflow';
 import type { DrawflowNodeData } from './types';
+import { findClassWithPrefix } from './utils/classNames';
 
 export function registerNode(context: Drawflow, name: string, html: any, props: any = null, options: any = null): void {
   context.noderegister[name] = { html, props, options };
@@ -337,7 +338,11 @@ export function removeNodeInput(context: Drawflow, id: string, input_class: stri
   if (context.module === moduleName) {
     const eles = context.container.querySelectorAll(`#node-${id} .inputs .input`);
     eles.forEach((item) => {
-      const id_class = parseInt(item.classList[1].slice(6), 10);
+      const inputClassName = findClassWithPrefix(item.classList, 'input_');
+      if (!inputClassName) {
+        return;
+      }
+      const id_class = parseInt(inputClassName.slice(6), 10);
       if (input_class_id < id_class) {
         item.classList.remove(`input_${id_class}`);
         item.classList.add(`input_${id_class - 1}`);
@@ -410,7 +415,11 @@ export function removeNodeOutput(context: Drawflow, id: string, output_class: st
   if (context.module === moduleName) {
     const eles = context.container.querySelectorAll(`#node-${id} .outputs .output`);
     eles.forEach((item) => {
-      const id_class = parseInt(item.classList[1].slice(7), 10);
+      const outputClassName = findClassWithPrefix(item.classList, 'output_');
+      if (!outputClassName) {
+        return;
+      }
+      const id_class = parseInt(outputClassName.slice(7), 10);
       if (output_class_id < id_class) {
         item.classList.remove(`output_${id_class}`);
         item.classList.add(`output_${id_class - 1}`);
