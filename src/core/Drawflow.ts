@@ -1,4 +1,4 @@
-import type { DrawflowData, DrawflowEventRegistry } from './types';
+import type { DrawflowData, DrawflowEventRegistry, DrawflowWirelessPortReference } from './types';
 import * as lifecycle from './lifecycle';
 import * as connections from './connections';
 import * as nodes from './nodes';
@@ -58,6 +58,7 @@ export default class Drawflow {
   public autoPanPointerY: number;
   public autoPanFrame: number | null;
   public autoPanMode: 'connection' | 'node' | null;
+  public pending_wireless: DrawflowWirelessPortReference | null;
 
   constructor(container: HTMLElement, render: any = null, parent: any = null) {
     this.events = {};
@@ -110,6 +111,7 @@ export default class Drawflow {
     this.autoPanPointerY = 0;
     this.autoPanFrame = null;
     this.autoPanMode = null;
+    this.pending_wireless = null;
   }
 
   public start = (): void => lifecycle.start(this);
@@ -142,8 +144,13 @@ export default class Drawflow {
   ): string => connections.createCurvature(this, start_pos_x, start_pos_y, end_pos_x, end_pos_y, curvature_value, type);
   public drawConnection = (ele: HTMLElement): void => connections.drawConnection(this, ele);
   public updateConnection = (eX: number, eY: number): void => connections.updateConnection(this, eX, eY);
-  public addConnection = (id_output: string, id_input: string, output_class: string, input_class: string): void =>
-    connections.addConnection(this, id_output, id_input, output_class, input_class);
+  public addConnection = (
+    id_output: string,
+    id_input: string,
+    output_class: string,
+    input_class: string,
+    options: connections.AddConnectionOptions = {}
+  ): void => connections.addConnection(this, id_output, id_input, output_class, input_class, options);
   public updateConnectionNodes = (id: string): void => connections.updateConnectionNodes(this, id);
   public dblclick = (e: MouseEvent): void => connections.dblclick(this, e);
   public createReroutePoint = (ele: Element): void => connections.createReroutePoint(this, ele);

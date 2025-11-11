@@ -6,17 +6,21 @@ export interface DrawflowOutputConnection {
 	node: string;
 	output: string;
 	points?: DrawflowConnectionPoint[];
+	signal?: string;
 }
 export interface DrawflowInputConnection {
 	node: string;
 	input: string;
 	points?: DrawflowConnectionPoint[];
+	signal?: string;
 }
 export interface DrawflowInputPort {
 	connections: DrawflowInputConnection[];
+	wireless?: string | null;
 }
 export interface DrawflowOutputPort {
 	connections: DrawflowOutputConnection[];
+	wireless?: string | null;
 }
 export interface DrawflowNodeData {
 	id: number | string;
@@ -36,6 +40,12 @@ export interface DrawflowModuleData {
 export interface DrawflowData {
 	drawflow: Record<string, DrawflowModuleData>;
 }
+export type DrawflowPortType = "input" | "output";
+export interface DrawflowWirelessPortReference {
+	nodeId: string;
+	portClass: string;
+	type: DrawflowPortType;
+}
 export type DrawflowEventCallback<T = any> = (payload: T) => void;
 export interface DrawflowEventRegistry {
 	[event: string]: {
@@ -46,6 +56,10 @@ export interface DrawflowRender {
 	version?: string | number;
 	h?: any;
 	render?: (wrapper: any, container: HTMLElement) => void;
+}
+export interface AddConnectionOptions {
+	signal?: string;
+	skipDom?: boolean;
 }
 declare class Drawflow {
 	events: DrawflowEventRegistry;
@@ -98,6 +112,7 @@ declare class Drawflow {
 	autoPanPointerY: number;
 	autoPanFrame: number | null;
 	autoPanMode: "connection" | "node" | null;
+	pending_wireless: DrawflowWirelessPortReference | null;
 	constructor(container: HTMLElement, render?: any, parent?: any);
 	start: () => void;
 	pointerdown_handler: (ev: PointerEvent) => void;
@@ -120,7 +135,7 @@ declare class Drawflow {
 	createCurvature: (start_pos_x: number, start_pos_y: number, end_pos_x: number, end_pos_y: number, curvature_value: number, type: string) => string;
 	drawConnection: (ele: HTMLElement) => void;
 	updateConnection: (eX: number, eY: number) => void;
-	addConnection: (id_output: string, id_input: string, output_class: string, input_class: string) => void;
+	addConnection: (id_output: string, id_input: string, output_class: string, input_class: string, options?: AddConnectionOptions) => void;
 	updateConnectionNodes: (id: string) => void;
 	dblclick: (e: MouseEvent) => void;
 	createReroutePoint: (ele: Element) => void;

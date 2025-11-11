@@ -1,6 +1,8 @@
 import type Drawflow from '../Drawflow';
 import { applyCanvasTranslation, applyStoredCanvasTranslation } from '../utils/canvas';
 import { extractConnectionClassInfo, findClassWithPrefix } from '../utils/classNames';
+import type { DrawflowWirelessPortReference } from '../types';
+import { isPortEligibleForWireless, movementExceedsThreshold, openWirelessDialog } from '../wireless';
 
 const hasWindow = typeof window !== 'undefined';
 const requestFrame = hasWindow && typeof window.requestAnimationFrame === 'function'
@@ -137,6 +139,12 @@ function handleNodeSelected(context: Drawflow): void {
 }
 
 function handlePortSelected(context: Drawflow, element: HTMLElement): void {
+  const portReference = getPortReferenceFromElement(element);
+  if (portReference && isPortEligibleForWireless(context, portReference)) {
+    context.pending_wireless = portReference;
+  } else {
+    context.pending_wireless = null;
+  }
   context.connection = true;
   if (context.node_selected) {
     context.node_selected.classList.remove('selected');
@@ -149,6 +157,27 @@ function handlePortSelected(context: Drawflow, element: HTMLElement): void {
     context.connection_selected = null;
   }
   context.drawConnection(element);
+}
+
+function getPortReferenceFromElement(element: HTMLElement): DrawflowWirelessPortReference | null {
+  const isInput = element.classList.contains('input');
+  const isOutput = element.classList.contains('output');
+  if (!isInput && !isOutput) {
+    return null;
+  }
+  const nodeElement = element.parentElement?.parentElement;
+  if (!nodeElement || !nodeElement.id.startsWith('node-')) {
+    return null;
+  }
+  const portClass = findClassWithPrefix(element.classList, isInput ? 'input_' : 'output_');
+  if (!portClass) {
+    return null;
+  }
+  return {
+    nodeId: nodeElement.id.slice(5),
+    portClass,
+    type: isInput ? 'input' : 'output',
+  };
 }
 
 function handleEditorSelected(context: Drawflow): void {
@@ -213,6 +242,9 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
 
   if (context.connection) {
     context.updateConnection(e_pos_x, e_pos_y);
+    if (context.pending_wireless && movementExceedsThreshold(context, e_pos_x, e_pos_y)) {
+      context.pending_wireless = null;
+    }
     handleConnectionAutoPan(context, e_pos_x, e_pos_y);
   } else if (context.drag && context.ele_selected) {
     handleNodeAutoPan(context, e_pos_x, e_pos_y);
@@ -356,6 +388,12 @@ export function dragEnd(context: Drawflow, e: MouseEvent | TouchEvent): void {
   context.editor_selected = false;
 
   context.dispatch('mouseUp', e);
+
+  const pendingWireless = context.pending_wireless;
+  context.pending_wireless = null;
+  if (pendingWireless && context.editor_mode === 'edit') {
+    void openWirelessDialog(context, pendingWireless).catch((error) => console.error(error));
+  }
 }
 
 function handleConnectionDrop(context: Drawflow, ele_last: HTMLElement | null): void {
@@ -432,6 +470,7 @@ function handleConnectionDrop(context: Drawflow, ele_last: HTMLElement | null): 
           output_class: output_class!,
           input_class: input_class!
         });
+        context.pending_wireless = null;
       } else {
         context.dispatch('connectionCancel', true);
         context.connection_ele!.remove();

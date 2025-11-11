@@ -1,6 +1,7 @@
 import type Drawflow from './Drawflow';
 import type { DrawflowNodeData } from './types';
 import { findClassWithPrefix } from './utils/classNames';
+import { setPortWirelessName } from './wireless';
 
 export function registerNode(context: Drawflow, name: string, html: any, props: any = null, options: any = null): void {
   context.noderegister[name] = { html, props, options };
@@ -62,7 +63,7 @@ export function addNode(
     const input = document.createElement('div');
     input.classList.add('input');
     input.classList.add(`input_${x + 1}`);
-    json_inputs[`input_${x + 1}`] = { connections: [] };
+    json_inputs[`input_${x + 1}`] = { connections: [], wireless: null };
     inputs.appendChild(input);
   }
 
@@ -71,7 +72,7 @@ export function addNode(
     const output = document.createElement('div');
     output.classList.add('output');
     output.classList.add(`output_${x + 1}`);
-    json_outputs[`output_${x + 1}`] = { connections: [] };
+    json_outputs[`output_${x + 1}`] = { connections: [], wireless: null };
     outputs.appendChild(output);
   }
 
@@ -149,27 +150,47 @@ export function addNodeImport(context: Drawflow, dataNode: DrawflowNodeData, pre
     input.classList.add('input');
     input.classList.add(input_item);
     inputs.appendChild(input);
-    Object.keys(dataNode.inputs[input_item].connections).forEach((output_item) => {
+
+    const inputPortData = dataNode.inputs[input_item];
+    if (inputPortData.wireless === undefined) {
+      inputPortData.wireless = null;
+    }
+
+    Object.keys(inputPortData.connections).forEach((output_item) => {
+      const connectionData = inputPortData.connections[output_item];
+      if (!connectionData) {
+        return;
+      }
+      if (typeof connectionData.signal === 'string' && connectionData.signal.trim() !== '') {
+        if (!inputPortData.wireless) {
+          inputPortData.wireless = connectionData.signal;
+        }
+        return;
+      }
       const connection = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.classList.add('main-path');
       path.setAttributeNS(null, 'd', '');
       connection.classList.add('connection');
       connection.classList.add(`node_in_node-${dataNode.id}`);
-      connection.classList.add(`node_out_node-${dataNode.inputs[input_item].connections[output_item].node}`);
-      connection.classList.add(dataNode.inputs[input_item].connections[output_item].input);
+      connection.classList.add(`node_out_node-${connectionData.node}`);
+      connection.classList.add(connectionData.input);
       connection.classList.add(input_item);
       connection.appendChild(path);
       precanvas.appendChild(connection);
     });
   });
 
-  for (let x = 0; x < Object.keys(dataNode.outputs).length; x += 1) {
+  Object.keys(dataNode.outputs).forEach((output_item) => {
     const output = document.createElement('div');
     output.classList.add('output');
-    output.classList.add(`output_${x + 1}`);
+    output.classList.add(output_item);
     outputs.appendChild(output);
-  }
+    const outputPortData = dataNode.outputs[output_item];
+    if (outputPortData.wireless === undefined) {
+      outputPortData.wireless = null;
+    }
+  });
 
   const content = document.createElement('div');
   content.classList.add('drawflow_content_node');
@@ -202,6 +223,24 @@ export function addNodeImport(context: Drawflow, dataNode: DrawflowNodeData, pre
   node.style.left = `${dataNode.pos_x}px`;
   parent.appendChild(node);
   context.precanvas!.appendChild(parent);
+
+  Object.entries(dataNode.inputs).forEach(([inputClass, portData]) => {
+    const existingSignal = portData.connections.find((connection) => typeof connection.signal === 'string' && connection.signal.trim() !== '');
+    const name = portData.wireless ?? existingSignal?.signal ?? null;
+    if (name) {
+      portData.wireless = name;
+      setPortWirelessName(context, { nodeId: dataNode.id.toString(), portClass: inputClass, type: 'input' }, name);
+    }
+  });
+
+  Object.entries(dataNode.outputs).forEach(([outputClass, portData]) => {
+    const existingSignal = portData.connections.find((connection) => typeof connection.signal === 'string' && connection.signal.trim() !== '');
+    const name = portData.wireless ?? existingSignal?.signal ?? null;
+    if (name) {
+      portData.wireless = name;
+      setPortWirelessName(context, { nodeId: dataNode.id.toString(), portClass: outputClass, type: 'output' }, name);
+    }
+  });
 }
 
 function applyDataBindings(content: HTMLElement, data: Record<string, any>): void {
@@ -284,7 +323,7 @@ export function addNodeInput(context: Drawflow, id: string): void {
     parent.appendChild(input);
     context.updateConnectionNodes(`node-${id}`);
   }
-  context.drawflow.drawflow[moduleName!].data[id].inputs[`input_${numInputs + 1}`] = { connections: [] };
+  context.drawflow.drawflow[moduleName!].data[id].inputs[`input_${numInputs + 1}`] = { connections: [], wireless: null };
 }
 
 export function addNodeOutput(context: Drawflow, id: string): void {
@@ -299,7 +338,7 @@ export function addNodeOutput(context: Drawflow, id: string): void {
     parent.appendChild(output);
     context.updateConnectionNodes(`node-${id}`);
   }
-  context.drawflow.drawflow[moduleName!].data[id].outputs[`output_${numOutputs + 1}`] = { connections: [] };
+  context.drawflow.drawflow[moduleName!].data[id].outputs[`output_${numOutputs + 1}`] = { connections: [], wireless: null };
 }
 
 export function removeNodeInput(context: Drawflow, id: string, input_class: string): void {

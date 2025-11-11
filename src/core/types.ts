@@ -7,20 +7,24 @@ export interface DrawflowOutputConnection {
   node: string;
   output: string;
   points?: DrawflowConnectionPoint[];
+  signal?: string;
 }
 
 export interface DrawflowInputConnection {
   node: string;
   input: string;
   points?: DrawflowConnectionPoint[];
+  signal?: string;
 }
 
 export interface DrawflowInputPort {
   connections: DrawflowInputConnection[];
+  wireless?: string | null;
 }
 
 export interface DrawflowOutputPort {
   connections: DrawflowOutputConnection[];
+  wireless?: string | null;
 }
 
 export interface DrawflowNodeData {
@@ -42,6 +46,14 @@ export interface DrawflowModuleData {
 
 export interface DrawflowData {
   drawflow: Record<string, DrawflowModuleData>;
+}
+
+export type DrawflowPortType = 'input' | 'output';
+
+export interface DrawflowWirelessPortReference {
+  nodeId: string;
+  portClass: string;
+  type: DrawflowPortType;
 }
 
 export type DrawflowEventCallback<T = any> = (payload: T) => void;
