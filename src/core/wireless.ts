@@ -428,38 +428,47 @@ function buildDialogSelectOptions(
   existingName: string | null,
   endpoints: WirelessEndpointOption[],
 ): DialogSelectOption[] {
-  const grouped = new Map<string, WirelessEndpointOption[]>();
-  endpoints.forEach((endpoint) => {
-    const list = grouped.get(endpoint.name) ?? [];
-    list.push(endpoint);
-    grouped.set(endpoint.name, list);
-  });
+  const optionMap = new Map<string, DialogSelectOption>();
 
-  const selectOptions: DialogSelectOption[] = Array.from(grouped.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([name, group]) => ({
-      value: encodeNameValue(name),
-      label: name,
-      name,
-      endpoints: group,
-    }));
-
-  const endpointNames = new Set(grouped.keys());
-  const pool = listWirelessNamePool(context, ref, existingName).sort((a, b) => a.localeCompare(b));
-
-  pool.forEach((name) => {
-    if (endpointNames.has(name)) {
-      return;
+  const registerOption = (name: string): DialogSelectOption => {
+    const existing = optionMap.get(name);
+    if (existing) {
+      return existing;
     }
-    selectOptions.push({
+    const created: DialogSelectOption = {
       value: encodeNameValue(name),
       label: name,
       name,
       endpoints: [],
-    });
+    };
+    optionMap.set(name, created);
+    return created;
+  };
+
+  const pool = listWirelessNamePool(context, ref, existingName);
+  pool.forEach((name) => {
+    registerOption(name);
   });
 
-  return selectOptions;
+  endpoints.forEach((endpoint) => {
+    const normalized = endpoint.name.trim();
+    if (normalized === '') {
+      return;
+    }
+    const option = registerOption(normalized);
+    const alreadyTracked = option.endpoints.some((tracked) => {
+      return (
+        tracked.nodeId === endpoint.nodeId &&
+        tracked.portClass === endpoint.portClass &&
+        tracked.type === endpoint.type
+      );
+    });
+    if (!alreadyTracked) {
+      option.endpoints.push(endpoint);
+    }
+  });
+
+  return Array.from(optionMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function connectWirelessPorts(context: Drawflow, origin: DrawflowWirelessPortReference, target: WirelessEndpointOption, signal: string): void {
