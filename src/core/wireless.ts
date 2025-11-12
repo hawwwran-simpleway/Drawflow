@@ -630,3 +630,29 @@ export function movementExceedsThreshold(context: Drawflow, currentX: number, cu
   const deltaY = Math.abs(context.pos_y_start - currentY);
   return deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD;
 }
+
+export function refreshWirelessPorts(context: Drawflow): void {
+  const modules = context.drawflow?.drawflow ?? {};
+
+  Object.values(modules).forEach((module) => {
+    const nodes = module?.data ?? {};
+
+    Object.values(nodes).forEach((node) => {
+      const nodeId = node.id.toString();
+
+      const inputs = node.inputs ?? {};
+      Object.keys(inputs).forEach((inputClass) => {
+        const portData = inputs[inputClass];
+        const name = resolvePortWirelessName(portData) ?? null;
+        setPortWirelessName(context, { nodeId, portClass: inputClass, type: 'input' }, name);
+      });
+
+      const outputs = node.outputs ?? {};
+      Object.keys(outputs).forEach((outputClass) => {
+        const portData = outputs[outputClass];
+        const name = resolvePortWirelessName(portData) ?? null;
+        setPortWirelessName(context, { nodeId, portClass: outputClass, type: 'output' }, name);
+      });
+    });
+  });
+}
