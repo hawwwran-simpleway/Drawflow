@@ -325,6 +325,11 @@ export function setPortWirelessName(context: Drawflow, ref: DrawflowWirelessPort
   }
   if (normalized !== '') {
     const label = ensureLabelElement(element);
+    
+    label.addEventListener('click', () => {
+		void openWirelessDialog(context, ref).catch((error) => console.error(error));
+    })
+    
     label.textContent = normalized;
     label.setAttribute('title', normalized);
     element.classList.add(WIRELESS_PORT_CLASS);
@@ -504,13 +509,26 @@ function buildDialogHtml(existingName: string | null, options: DialogSelectOptio
       return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
     })
     .join('');
+  const selectOptionsData = options
+	.map((option) => {
+		return `<option>${escapeHtml(option.label)}</option>`;
+	})
+	.join('');
+	
   return `
     <div class="drawflow-wireless-dialog">
       <label class="drawflow-wireless-dialog__label" for="df-wireless-name-input">Signal name</label>
-      <input id="df-wireless-name-input" class="swal2-input" placeholder="Enter new signal name" value="${escapedValue}">
+      <input
+        id="df-wireless-name-input"
+        class="swal2-input"
+        placeholder="Enter new signal name"
+        value="${escapedValue}"
+        list="drawflow-wireless-dialog__input-data"
+      >
       ${selectOptions
         ?
 		  `
+		  <datalist id="drawflow-wireless-dialog__input-data">${selectOptionsData}</datalist>
           <label class="drawflow-wireless-dialog__label" for="df-wireless-name-select">Connect to existing</label>
 		  <select id="df-wireless-name-select" class="swal2-input swal2-select">
 			<option value="">(none)</option>
