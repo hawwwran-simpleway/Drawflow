@@ -81,7 +81,7 @@ $delete-color: var(--drawflow-delete-color, white);
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
-      display: inline-flex;
+      display: block;
       align-items: center;
       padding: 2px 6px;
       font-size: 10px;
@@ -199,6 +199,7 @@ $delete-color: var(--drawflow-delete-color, white);
 .drawflow-wireless-dialog {
 	.swal2-input {
 		margin: 0.5em 1em;
+		width: 350px;
 	}
 }
 
