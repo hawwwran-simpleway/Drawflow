@@ -7,7 +7,7 @@ export function getModuleFromNodeId(context: Drawflow, id: string): string | und
   const editor = context.drawflow.drawflow;
   Object.keys(editor).forEach((moduleName) => {
     Object.keys(editor[moduleName].data).forEach((node) => {
-      if (node === id) {
+      if (String(node) === String(id)) {
         nameModule = moduleName;
       }
     });

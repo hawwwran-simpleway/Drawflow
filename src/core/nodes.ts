@@ -328,7 +328,7 @@ export function addNodeInput(context: Drawflow, id: string): void {
 
 export function addNodeOutput(context: Drawflow, id: string): void {
   const moduleName = context.getModuleFromNodeId(id);
-  const infoNode = context.getNodeFromId(id)!;
+  const infoNode = context.getNodeFromId(id);
   const numOutputs = Object.keys(infoNode.outputs).length;
   if (context.module === moduleName) {
     const output = document.createElement('div');
