@@ -1,5 +1,6 @@
 import type Drawflow from './Drawflow';
 import type { DrawflowConnectionPoint } from './types';
+import { setPortWirelessName } from './wireless';
 import {
   ensureNodeDomId,
   extractConnectionClassInfo,
@@ -105,12 +106,18 @@ export function updateConnection(context: Drawflow, eX: number, eY: number): voi
   path.setAttributeNS(null, 'd', lineCurve);
 }
 
+export interface AddConnectionOptions {
+  signal?: string;
+  skipDom?: boolean;
+}
+
 export function addConnection(
   context: Drawflow,
   id_output: string,
   id_input: string,
   output_class: string,
-  input_class: string
+  input_class: string,
+  options: AddConnectionOptions = {}
 ): void {
   const nodeOneModule = context.getModuleFromNodeId(id_output);
   const nodeTwoModule = context.getModuleFromNodeId(id_input);
@@ -142,16 +149,29 @@ export function addConnection(
   if (exist) {
     return;
   }
-  context.drawflow.drawflow[nodeOneModule!].data[id_output].outputs[output_class].connections.push({
-    node: id_input.toString(),
-    output: input_class
-  });
-  context.drawflow.drawflow[nodeOneModule!].data[id_input].inputs[input_class].connections.push({
-    node: id_output.toString(),
-    input: output_class
-  });
+  const normalizedSignal = typeof options.signal === 'string' && options.signal.trim() !== '' ? options.signal.trim() : undefined;
 
-  if (context.module === nodeOneModule) {
+  const outputConnection = {
+    node: id_input.toString(),
+    output: input_class,
+  } as { node: string; output: string; signal?: string };
+  if (normalizedSignal) {
+    outputConnection.signal = normalizedSignal;
+  }
+  context.drawflow.drawflow[nodeOneModule!].data[id_output].outputs[output_class].connections.push(outputConnection);
+
+  const inputConnection = {
+    node: id_output.toString(),
+    input: output_class,
+  } as { node: string; input: string; signal?: string };
+  if (normalizedSignal) {
+    inputConnection.signal = normalizedSignal;
+  }
+  context.drawflow.drawflow[nodeOneModule!].data[id_input].inputs[input_class].connections.push(inputConnection);
+
+  const shouldSkipDom = Boolean(options.skipDom);
+
+  if (!shouldSkipDom && context.module === nodeOneModule) {
     const connection = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.classList.add('main-path');
@@ -166,7 +186,13 @@ export function addConnection(
     context.updateConnectionNodes(`node-${id_output}`);
     context.updateConnectionNodes(`node-${id_input}`);
   }
-  context.dispatch('connectionCreated', { output_id: id_output, input_id: id_input, output_class, input_class });
+  context.dispatch('connectionCreated', {
+    output_id: id_output,
+    input_id: id_input,
+    output_class,
+    input_class,
+    ...(normalizedSignal ? { signal: normalizedSignal } : {}),
+  });
 }
 
 export function updateConnectionNodes(context: Drawflow, id: string): void {
@@ -939,6 +965,18 @@ export function removeSingleConnection(
   context.drawflow.drawflow[nodeOneModule!].data[id_input].inputs[input_class].connections.splice(index_in, 1);
 
   context.dispatch('connectionRemoved', { output_id: id_output, input_id: id_input, output_class, input_class });
+  const moduleData = context.drawflow.drawflow[nodeOneModule!].data;
+  const outputPort = moduleData[id_output]?.outputs?.[output_class];
+  const inputPort = moduleData[id_input]?.inputs?.[input_class];
+  const outputName = outputPort?.wireless;
+  const inputName = inputPort?.wireless;
+
+  if (outputName) {
+    setPortWirelessName(context, { nodeId: id_output, portClass: output_class, type: 'output' }, outputName);
+  }
+  if (inputName) {
+    setPortWirelessName(context, { nodeId: id_input, portClass: input_class, type: 'input' }, inputName);
+  }
   return true;
 }
 
@@ -956,5 +994,46 @@ export function removeConnectionNodeId(context: Drawflow, id: string): void {
     if (info.outputNodeDomId === targetNodeDomId || info.inputNodeDomId === targetNodeDomId) {
       removeDanglingConnectionElement(context, element);
     }
+  });
+
+  removeWirelessConnectionsForNode(context, id);
+}
+
+function removeWirelessConnectionsForNode(context: Drawflow, nodeId: string): void {
+  const moduleName = context.getModuleFromNodeId(nodeId);
+  if (!moduleName) {
+    return;
+  }
+  const moduleData = context.drawflow.drawflow[moduleName]?.data;
+  if (!moduleData) {
+    return;
+  }
+
+  const removals = new Map<string, { outputNode: string; inputNode: string; outputClass: string; inputClass: string }>();
+
+  Object.entries(moduleData).forEach(([currentNodeId, nodeData]) => {
+    Object.entries(nodeData.outputs).forEach(([outputClass, portData]) => {
+      portData.connections.forEach((connection) => {
+        if (!connection.signal || connection.signal.trim() === '') {
+          return;
+        }
+        if (currentNodeId !== nodeId && connection.node !== nodeId) {
+          return;
+        }
+        const removalKey = `${currentNodeId}->${connection.node}:${outputClass}:${connection.output}`;
+        if (!removals.has(removalKey)) {
+          removals.set(removalKey, {
+            outputNode: currentNodeId,
+            inputNode: connection.node,
+            outputClass,
+            inputClass: connection.output,
+          });
+        }
+      });
+    });
+  });
+
+  removals.forEach((removal) => {
+    context.removeSingleConnection(removal.outputNode, removal.inputNode, removal.outputClass, removal.inputClass);
   });
 }

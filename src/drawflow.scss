@@ -77,15 +77,52 @@ $delete-color: var(--drawflow-delete-color, white);
       margin-bottom: 5px;
     }
 
+    .df-wireless-label {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      font-size: 10px;
+      line-height: 1;
+      background: rgba(255, 0, 0, 0.5);
+      color: white;
+      border: 1px solid white;
+      border-radius: 4px;
+      white-space: nowrap;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      
+      cursor: pointer;
+    }
+
+    .df-wireless-label--connected {
+      background: white;
+      color: black;
+	  border: 1px solid black;
+    }
+
     .input {
       left: -27px;
       top: 2px;
       background: $input-background;
     }
 
+    .input .df-wireless-label {
+      right: 12px;
+      text-align: right;
+    }
+
     .output {
       right: -3px;
       top: 2px;
+    }
+
+    .output .df-wireless-label {
+      left: 12px;
+      text-align: left;
     }
   }
 
@@ -157,4 +194,14 @@ $delete-color: var(--drawflow-delete-color, white);
   border-radius: 50%;
   font-family: monospace;
   cursor: pointer;
+}
+
+.drawflow-wireless-dialog {
+	.swal2-input {
+		margin: 0.5em 1em;
+	}
+}
+
+.drawflow-wireless-dialog__label {
+	display: block;
 }
