@@ -433,6 +433,16 @@ function handleConnectionDrop(context: Drawflow, ele_last: HTMLElement | null): 
 
       let connectionExists = false;
 
+      const inputPort = inputNode?.inputs?.[input_class!];
+      const inputHasWirelessName = typeof inputPort?.wireless === 'string' && inputPort.wireless.trim() !== '';
+
+      if (inputHasWirelessName) {
+        context.dispatch('connectionCancel', true);
+        context.connection_ele!.remove();
+        context.pending_wireless = null;
+        return;
+      }
+
       if (outputNode && outputNode.outputs[output_class!]) {
         connectionExists = outputNode.outputs[output_class!].connections.some((conn) =>
           conn.node === input_id!.slice(5) && conn.output === input_class
