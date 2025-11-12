@@ -192,3 +192,13 @@ $delete-color: var(--drawflow-delete-color, white);
   font-family: monospace;
   cursor: pointer;
 }
+
+.drawflow-wireless-dialog {
+	.swal2-input {
+		margin: 0.5em 1em;
+	}
+}
+
+.drawflow-wireless-dialog__label {
+	display: block;
+}

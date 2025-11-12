@@ -508,11 +508,17 @@ function buildDialogHtml(existingName: string | null, options: DialogSelectOptio
     <div class="drawflow-wireless-dialog">
       <label class="drawflow-wireless-dialog__label" for="df-wireless-name-input">Signal name</label>
       <input id="df-wireless-name-input" class="swal2-input" placeholder="Enter new signal name" value="${escapedValue}">
-      <label class="drawflow-wireless-dialog__label" for="df-wireless-name-select">Connect to existing</label>
-      <select id="df-wireless-name-select" class="swal2-select">
-        <option value="">(none)</option>
-        ${selectOptions}
-      </select>
+      ${selectOptions
+        ?
+		  `
+          <label class="drawflow-wireless-dialog__label" for="df-wireless-name-select">Connect to existing</label>
+		  <select id="df-wireless-name-select" class="swal2-input swal2-select">
+			<option value="">(none)</option>
+			${selectOptions}
+		  </select>
+		  `
+		: ""
+	  }
     </div>
   `;
 }
