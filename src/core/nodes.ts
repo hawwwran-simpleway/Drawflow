@@ -162,8 +162,9 @@ export function addNodeImport(context: Drawflow, dataNode: DrawflowNodeData, pre
         return;
       }
       if (typeof connectionData.signal === 'string' && connectionData.signal.trim() !== '') {
-        if (!inputPortData.wireless) {
-          inputPortData.wireless = connectionData.signal;
+        const trimmedSignal = connectionData.signal.trim();
+        if (typeof inputPortData.wireless !== 'string' || inputPortData.wireless.trim() === '') {
+          inputPortData.wireless = trimmedSignal;
         }
         return;
       }
@@ -226,7 +227,11 @@ export function addNodeImport(context: Drawflow, dataNode: DrawflowNodeData, pre
 
   Object.entries(dataNode.inputs).forEach(([inputClass, portData]) => {
     const existingSignal = portData.connections.find((connection) => typeof connection.signal === 'string' && connection.signal.trim() !== '');
-    const name = portData.wireless ?? existingSignal?.signal ?? null;
+    const nameFromPort = typeof portData.wireless === 'string' && portData.wireless.trim() !== '' ? portData.wireless.trim() : null;
+    const nameFromConnection = typeof existingSignal?.signal === 'string' && existingSignal.signal.trim() !== ''
+      ? existingSignal.signal.trim()
+      : null;
+    const name = nameFromPort ?? nameFromConnection;
     if (name) {
       portData.wireless = name;
       setPortWirelessName(context, { nodeId: dataNode.id.toString(), portClass: inputClass, type: 'input' }, name);
@@ -235,7 +240,11 @@ export function addNodeImport(context: Drawflow, dataNode: DrawflowNodeData, pre
 
   Object.entries(dataNode.outputs).forEach(([outputClass, portData]) => {
     const existingSignal = portData.connections.find((connection) => typeof connection.signal === 'string' && connection.signal.trim() !== '');
-    const name = portData.wireless ?? existingSignal?.signal ?? null;
+    const nameFromPort = typeof portData.wireless === 'string' && portData.wireless.trim() !== '' ? portData.wireless.trim() : null;
+    const nameFromConnection = typeof existingSignal?.signal === 'string' && existingSignal.signal.trim() !== ''
+      ? existingSignal.signal.trim()
+      : null;
+    const name = nameFromPort ?? nameFromConnection;
     if (name) {
       portData.wireless = name;
       setPortWirelessName(context, { nodeId: dataNode.id.toString(), portClass: outputClass, type: 'output' }, name);
