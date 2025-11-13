@@ -19,12 +19,10 @@ export interface DrawflowInputConnection {
 
 export interface DrawflowInputPort {
   connections: DrawflowInputConnection[];
-  wireless?: string | null;
 }
 
 export interface DrawflowOutputPort {
   connections: DrawflowOutputConnection[];
-  wireless?: string | null;
 }
 
 export interface DrawflowNodeData {
