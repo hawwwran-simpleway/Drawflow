@@ -1,7 +1,9 @@
 import Swal from 'sweetalert2';
 import type Drawflow from './Drawflow';
 import type {
+  DrawflowInputConnection,
   DrawflowInputPort,
+  DrawflowOutputConnection,
   DrawflowOutputPort,
   DrawflowPortType,
   DrawflowWirelessPortReference,
@@ -118,18 +120,25 @@ function getPortData(context: Drawflow, ref: DrawflowWirelessPortReference): Dra
   if (!port) {
     return null;
   }
-  if (port.wireless === undefined) {
-    port.wireless = null;
-  }
   return port;
 }
 
 function resolvePortWirelessName(port: DrawflowInputPort | DrawflowOutputPort): string | null {
-  if (typeof port.wireless === 'string' && port.wireless.trim() !== '') {
-    return port.wireless;
+  const connectionWithSignal = port.connections.find((connection) => {
+    return typeof connection.signal === 'string' && connection.signal.trim() !== '';
+  });
+  return connectionWithSignal ? connectionWithSignal.signal!.trim() : null;
+}
+
+function applySignalValue(
+  connection: DrawflowInputConnection | DrawflowOutputConnection,
+  normalized: string,
+): void {
+  if (normalized !== '') {
+    connection.signal = normalized;
+  } else if ('signal' in connection) {
+    delete (connection as any).signal;
   }
-  const connectionWithSignal = port.connections.find((connection) => typeof connection.signal === 'string' && connection.signal.trim() !== '');
-  return connectionWithSignal?.signal ?? null;
 }
 
 function isSamePort(
@@ -230,11 +239,7 @@ export function getPortWirelessName(context: Drawflow, ref: DrawflowWirelessPort
   if (!port) {
     return null;
   }
-  const name = resolvePortWirelessName(port);
-  if (port.wireless !== name) {
-    port.wireless = name ?? null;
-  }
-  return name;
+  return resolvePortWirelessName(port);
 }
 
 export function isPortEligibleForWireless(context: Drawflow, ref: DrawflowWirelessPortReference): boolean {
@@ -317,7 +322,35 @@ export function setPortWirelessName(context: Drawflow, ref: DrawflowWirelessPort
   const port = getPortData(context, ref);
   const normalized = typeof name === 'string' ? name.trim() : '';
   if (port) {
-    port.wireless = normalized !== '' ? normalized : null;
+    const moduleData = getModuleData(context, ref.nodeId);
+    if (!moduleData) {
+      port.connections.forEach((connection) => {
+        applySignalValue(connection, normalized);
+      });
+    } else {
+      port.connections.forEach((connection) => {
+        applySignalValue(connection, normalized);
+        if (ref.type === 'output') {
+          const targetNode = moduleData[connection.node];
+          const targetPort = targetNode?.inputs?.[connection.output];
+          const counterpart = targetPort?.connections.find((candidate) => {
+            return candidate.node === ref.nodeId && candidate.input === ref.portClass;
+          });
+          if (counterpart) {
+            applySignalValue(counterpart, normalized);
+          }
+        } else {
+          const targetNode = moduleData[connection.node];
+          const targetPort = targetNode?.outputs?.[connection.input];
+          const counterpart = targetPort?.connections.find((candidate) => {
+            return candidate.node === ref.nodeId && candidate.output === ref.portClass;
+          });
+          if (counterpart) {
+            applySignalValue(counterpart, normalized);
+          }
+        }
+      });
+    }
   }
   const element = getPortElement(context, ref);
   if (!element) {
