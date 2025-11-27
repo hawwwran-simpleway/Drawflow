@@ -40,3 +40,57 @@ export function zoom_reset(context: Drawflow): void {
     context.zoom_refresh();
   }
 }
+
+export function zoom_fit(context: Drawflow, padding = 0): void {
+  if (!context.precanvas) return;
+
+  const nodes = Array.from(context.precanvas.querySelectorAll<HTMLElement>('.drawflow-node'));
+  if (nodes.length === 0) return;
+
+  const bounds = nodes.reduce(
+    (acc, node) => {
+      const left = node.offsetLeft;
+      const top = node.offsetTop;
+      const right = left + node.offsetWidth;
+      const bottom = top + node.offsetHeight;
+
+      return {
+        minX: Math.min(acc.minX, left),
+        minY: Math.min(acc.minY, top),
+        maxX: Math.max(acc.maxX, right),
+        maxY: Math.max(acc.maxY, bottom)
+      };
+    },
+    { minX: Number.POSITIVE_INFINITY, minY: Number.POSITIVE_INFINITY, maxX: Number.NEGATIVE_INFINITY, maxY: Number.NEGATIVE_INFINITY }
+  );
+
+  const contentWidth = Math.max(bounds.maxX - bounds.minX, 1);
+  const contentHeight = Math.max(bounds.maxY - bounds.minY, 1);
+
+  const containerWidth = context.container.clientWidth;
+  const containerHeight = context.container.clientHeight;
+  const normalizedPadding = Math.max(0, padding);
+
+  const availableWidth = Math.max(containerWidth - normalizedPadding * 2, 0);
+  const availableHeight = Math.max(containerHeight - normalizedPadding * 2, 0);
+
+  if (availableWidth === 0 || availableHeight === 0) return;
+
+  const scaleX = availableWidth / contentWidth;
+  const scaleY = availableHeight / contentHeight;
+  const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY), context.zoom_min), context.zoom_max);
+
+  const scaledContentWidth = contentWidth * newZoom;
+  const scaledContentHeight = contentHeight * newZoom;
+
+  const offsetX = (containerWidth - scaledContentWidth) / 2;
+  const offsetY = (containerHeight - scaledContentHeight) / 2;
+
+  context.zoom = newZoom;
+  context.zoom_last_value = newZoom;
+  context.canvas_x = offsetX / newZoom - bounds.minX;
+  context.canvas_y = offsetY / newZoom - bounds.minY;
+
+  context.dispatch('zoom', context.zoom);
+  applyStoredCanvasTranslation(context);
+}
