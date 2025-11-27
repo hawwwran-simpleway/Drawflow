@@ -88,8 +88,14 @@ export function zoom_fit(context: Drawflow, padding = 0): void {
 
   context.zoom = newZoom;
   context.zoom_last_value = newZoom;
-  context.canvas_x = paddedCenterX / newZoom - contentCenterX;
-  context.canvas_y = paddedCenterY / newZoom - contentCenterY;
+  const panShiftX = paddedCenterX / newZoom - contentCenterX;
+  const panShiftY = paddedCenterY / newZoom - contentCenterY;
+
+  console.log('Drawflow zoom_fit content center', { x: contentCenterX, y: contentCenterY });
+  console.log('Drawflow zoom_fit pan shift', { x: panShiftX, y: panShiftY });
+
+  context.canvas_x = panShiftX;
+  context.canvas_y = panShiftY;
 
   context.dispatch('zoom', context.zoom);
   applyStoredCanvasTranslation(context);
