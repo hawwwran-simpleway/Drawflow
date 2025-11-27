@@ -82,13 +82,14 @@ export function zoom_fit(context: Drawflow, padding = 0): void {
 
   const contentCenterX = bounds.minX + contentWidth / 2;
   const contentCenterY = bounds.minY + contentHeight / 2;
-  const containerCenterX = containerWidth / 2;
-  const containerCenterY = containerHeight / 2;
+
+  const paddedCenterX = normalizedPadding + availableWidth / 2;
+  const paddedCenterY = normalizedPadding + availableHeight / 2;
 
   context.zoom = newZoom;
   context.zoom_last_value = newZoom;
-  context.canvas_x = containerCenterX / newZoom - contentCenterX;
-  context.canvas_y = containerCenterY / newZoom - contentCenterY;
+  context.canvas_x = paddedCenterX / newZoom - contentCenterX;
+  context.canvas_y = paddedCenterY / newZoom - contentCenterY;
 
   context.dispatch('zoom', context.zoom);
   applyStoredCanvasTranslation(context);
