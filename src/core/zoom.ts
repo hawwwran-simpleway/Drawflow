@@ -1,5 +1,5 @@
 import type Drawflow from './Drawflow';
-import { applyStoredCanvasTranslation } from './utils/canvas';
+import { applyStoredCanvasTranslation, setCanvasTranslation } from './utils/canvas';
 
 export function zoom_enter(context: Drawflow, event: WheelEvent): void {
   if (event.ctrlKey) {
@@ -94,9 +94,6 @@ export function zoom_fit(context: Drawflow, padding = 0): void {
   console.log('Drawflow zoom_fit content center', { x: contentCenterX, y: contentCenterY });
   console.log('Drawflow zoom_fit pan shift', { x: panShiftX, y: panShiftY });
 
-  context.canvas_x = panShiftX;
-  context.canvas_y = panShiftY;
-
   context.dispatch('zoom', context.zoom);
-  applyStoredCanvasTranslation(context);
+  setCanvasTranslation(context, panShiftX, panShiftY);
 }

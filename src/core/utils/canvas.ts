@@ -12,6 +12,14 @@ export function applyStoredCanvasTranslation(context: Drawflow): void {
   applyCanvasTranslation(context, context.canvas_x, context.canvas_y);
 }
 
+export function setCanvasTranslation(context: Drawflow, x: number, y: number): void {
+  context.canvas_x = x;
+  context.canvas_y = y;
+
+  context.dispatch('translate', { x, y });
+  applyCanvasTranslation(context, x, y);
+}
+
 export function resetCanvasTransform(context: Drawflow): void {
   if (context.precanvas) {
     context.precanvas.style.transform = '';
