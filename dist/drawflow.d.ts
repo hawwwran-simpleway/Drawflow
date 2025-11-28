@@ -16,11 +16,9 @@ export interface DrawflowInputConnection {
 }
 export interface DrawflowInputPort {
 	connections: DrawflowInputConnection[];
-	wireless?: string | null;
 }
 export interface DrawflowOutputPort {
 	connections: DrawflowOutputConnection[];
-	wireless?: string | null;
 }
 export interface DrawflowNodeData {
 	id: number | string;
@@ -132,6 +130,7 @@ declare class Drawflow {
 	zoom_in: () => void;
 	zoom_out: () => void;
 	zoom_reset: () => void;
+	zoom_fit: (paddingTop?: number, paddingRight?: number, paddingBottom?: number, paddingLeft?: number) => void;
 	createCurvature: (start_pos_x: number, start_pos_y: number, end_pos_x: number, end_pos_y: number, curvature_value: number, type: string) => string;
 	drawConnection: (ele: HTMLElement) => void;
 	updateConnection: (eX: number, eY: number) => void;

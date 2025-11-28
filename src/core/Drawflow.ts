@@ -133,6 +133,7 @@ export default class Drawflow {
   public zoom_in = (): void => zoom.zoom_in(this);
   public zoom_out = (): void => zoom.zoom_out(this);
   public zoom_reset = (): void => zoom.zoom_reset(this);
+  public zoom_fit = (paddingTop = 0, paddingRight = 0, paddingBottom = 0, paddingLeft = 0): void => zoom.zoom_fit(this, paddingTop, paddingRight, paddingBottom, paddingLeft);
 
   public createCurvature = (
     start_pos_x: number,
