@@ -14,6 +14,9 @@ const cancelFrame = hasWindow && typeof window.cancelAnimationFrame === 'functio
 
 export function click(context: Drawflow, e: MouseEvent | TouchEvent): void {
   context.dispatch('click', e);
+  if (document.activeElement !== context.container) {
+    context.container.focus({ preventScroll: true });
+  }
   const target = e.target as HTMLElement;
   if (!target) {
     return;
