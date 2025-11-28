@@ -41,7 +41,7 @@ export function zoom_reset(context: Drawflow): void {
   }
 }
 
-export function zoom_fit(context: Drawflow, padding = 0): void {
+export function zoom_fit(context: Drawflow, paddingTop = 0, paddingRight = 0, paddingBottom = 0, paddingLeft = 0): void {
   if (!context.precanvas) return;
 
   const nodes = Array.from(context.precanvas.querySelectorAll<HTMLElement>('.drawflow-node'));
@@ -66,13 +66,17 @@ export function zoom_fit(context: Drawflow, padding = 0): void {
 
   const contentWidth = Math.max(bounds.maxX - bounds.minX, 1);
   const contentHeight = Math.max(bounds.maxY - bounds.minY, 1);
-
+  
   const containerWidth = context.container.clientWidth;
   const containerHeight = context.container.clientHeight;
-  const normalizedPadding = Math.max(0, padding);
+  
+  const normalizedPaddingTop = Math.max(0, paddingTop);
+  const normalizedPaddingRight = Math.max(0, paddingRight);
+  const normalizedPaddingBottom = Math.max(0, paddingBottom);
+  const normalizedPaddingLeft = Math.max(0, paddingLeft);
 
-  const availableWidth = Math.max(containerWidth - normalizedPadding * 2, 0);
-  const availableHeight = Math.max(containerHeight - normalizedPadding * 2, 0);
+  const availableWidth = Math.max(containerWidth - (normalizedPaddingLeft + normalizedPaddingRight), 0);
+  const availableHeight = Math.max(containerHeight - (normalizedPaddingTop + normalizedPaddingBottom), 0);
 
   if (availableWidth === 0 || availableHeight === 0) return;
 
@@ -82,17 +86,15 @@ export function zoom_fit(context: Drawflow, padding = 0): void {
 
   const contentCenterX = bounds.minX + contentWidth / 2;
   const contentCenterY = bounds.minY + contentHeight / 2;
-
-  const paddedCenterX = normalizedPadding + availableWidth / 2;
-  const paddedCenterY = normalizedPadding + availableHeight / 2;
+	
+  const paddedCenterX = containerWidth / 2;
+  const paddedCenterY = containerHeight / 2;
 
   context.zoom = newZoom;
   context.zoom_last_value = newZoom;
-  const panShiftX = paddedCenterX / newZoom - contentCenterX;
-  const panShiftY = paddedCenterY / newZoom - contentCenterY;
-
-  console.log('Drawflow zoom_fit content center', { x: contentCenterX, y: contentCenterY });
-  console.log('Drawflow zoom_fit pan shift', { x: panShiftX, y: panShiftY });
+  
+  const panShiftX = ((paddedCenterX - contentCenterX) * newZoom) + ((normalizedPaddingLeft - normalizedPaddingRight) / 2);
+  const panShiftY = ((paddedCenterY - contentCenterY) * newZoom) + ((normalizedPaddingTop - normalizedPaddingBottom) / 2);
 
   context.dispatch('zoom', context.zoom);
   setCanvasTranslation(context, panShiftX, panShiftY);
