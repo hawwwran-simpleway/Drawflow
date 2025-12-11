@@ -152,9 +152,6 @@ export function addNodeImport(context: Drawflow, dataNode: DrawflowNodeData, pre
     inputs.appendChild(input);
 
     const inputPortData = dataNode.inputs[input_item];
-    if ((inputPortData as any).wireless !== undefined) {
-      delete (inputPortData as any).wireless;
-    }
 
     Object.keys(inputPortData.connections).forEach((output_item) => {
       const connectionData = inputPortData.connections[output_item];
@@ -184,9 +181,6 @@ export function addNodeImport(context: Drawflow, dataNode: DrawflowNodeData, pre
     output.classList.add(output_item);
     outputs.appendChild(output);
     const outputPortData = dataNode.outputs[output_item];
-    if ((outputPortData as any).wireless !== undefined) {
-      delete (outputPortData as any).wireless;
-    }
   });
 
   const content = document.createElement('div');
