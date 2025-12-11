@@ -124,6 +124,10 @@ function getPortData(context: Drawflow, ref: DrawflowWirelessPortReference): Dra
 }
 
 function resolvePortWirelessName(port: DrawflowInputPort | DrawflowOutputPort): string | null {
+  const storedWireless = (port as { wireless?: unknown }).wireless;
+  if (typeof storedWireless === 'string' && storedWireless.trim() !== '') {
+    return storedWireless.trim();
+  }
   const connectionWithSignal = port.connections.find((connection) => {
     return typeof connection.signal === 'string' && connection.signal.trim() !== '';
   });
@@ -322,6 +326,11 @@ export function setPortWirelessName(context: Drawflow, ref: DrawflowWirelessPort
   const port = getPortData(context, ref);
   const normalized = typeof name === 'string' ? name.trim() : '';
   if (port) {
+    if (normalized !== '') {
+      (port as any).wireless = normalized;
+    } else if ('wireless' in port) {
+      delete (port as any).wireless;
+    }
     const moduleData = getModuleData(context, ref.nodeId);
     if (!moduleData) {
       port.connections.forEach((connection) => {
