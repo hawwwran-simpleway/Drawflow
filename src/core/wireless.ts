@@ -169,7 +169,7 @@ function isWirelessNameUsedByAnotherOutput(
   if (!moduleData) {
     return false;
   }
-  const normalized = name.trim();
+  const normalized = name.trim().toLowerCase();
   if (normalized === '') {
     return false;
   }
@@ -179,7 +179,7 @@ function isWirelessNameUsedByAnotherOutput(
       if (isSamePort(ref, node.id, portClass, 'output')) {
         return false;
       }
-      const portName = resolvePortWirelessName(portData);
+      const portName = resolvePortWirelessName(portData)?.toLowerCase() ?? null;
       return portName === normalized;
     });
   });
