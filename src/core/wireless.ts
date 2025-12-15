@@ -169,7 +169,7 @@ function isWirelessNameUsedByAnotherOutput(
   if (!moduleData) {
     return false;
   }
-  const normalized = name.trim();
+  const normalized = name.trim().toLowerCase();
   if (normalized === '') {
     return false;
   }
@@ -179,7 +179,7 @@ function isWirelessNameUsedByAnotherOutput(
       if (isSamePort(ref, node.id, portClass, 'output')) {
         return false;
       }
-      const portName = resolvePortWirelessName(portData);
+      const portName = resolvePortWirelessName(portData)?.toLowerCase() ?? null;
       return portName === normalized;
     });
   });
@@ -544,18 +544,26 @@ function autoConnectByName(context: Drawflow, ref: DrawflowWirelessPortReference
   });
 }
 
+const listAttributeValue = 'drawflow-wireless-dialog__input-data';
+
 function buildDialogHtml(existingName: string | null, options: DialogSelectOption[]): string {
   const escapedValue = existingName ? escapeHtml(existingName) : '';
-  const selectOptions = options
-    .map((option) => {
-      return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
-    })
-    .join('');
-  const selectOptionsData = options
-	.map((option) => {
-		return `<option>${escapeHtml(option.label)}</option>`;
-	})
-	.join('');
+  const hasSelectOptions = options.length > 0;
+  const selectOptions = hasSelectOptions
+    ? options
+        .map((option) => {
+          return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
+        })
+        .join('')
+    : '';
+  const selectOptionsData = hasSelectOptions
+    ? options
+        .map((option) => {
+          return `<option>${escapeHtml(option.label)}</option>`;
+        })
+        .join('')
+    : '';
+  
 	
   return `
     <div class="drawflow-wireless-dialog">
@@ -565,20 +573,19 @@ function buildDialogHtml(existingName: string | null, options: DialogSelectOptio
         class="swal2-input"
         placeholder="Enter new signal name"
         value="${escapedValue}"
-        list="drawflow-wireless-dialog__input-data"
+        autocomplete="off"
       >
-      ${selectOptions
-        ?
-		  `
-		  <datalist id="drawflow-wireless-dialog__input-data">${selectOptionsData}</datalist>
+      ${hasSelectOptions
+        ? `
+                  <datalist id="${listAttributeValue}">${selectOptionsData}</datalist>
           <label class="drawflow-wireless-dialog__label" for="df-wireless-name-select">Connect to existing</label>
-		  <select id="df-wireless-name-select" class="swal2-input swal2-select">
-			<option value="">(none)</option>
-			${selectOptions}
-		  </select>
-		  `
-		: ""
-	  }
+                  <select id="df-wireless-name-select" class="swal2-input swal2-select">
+                        <option value="">(none)</option>
+                        ${selectOptions}
+                  </select>
+                  `
+        : ''
+      }
     </div>
   `;
 }
@@ -614,6 +621,15 @@ async function openDialog(
     title: ref.type === 'input' ? 'Configure input signal' : 'Configure output signal',
     html: buildDialogHtml(existingName, selectOptions),
     focusConfirm: false,
+    didOpen: () => {
+      const input = document.getElementById('df-wireless-name-input') as HTMLInputElement | null;
+      const select = document.getElementById('df-wireless-name-select') as HTMLSelectElement | null;
+      if (select) {
+        input.setAttribute('list', listAttributeValue); // Set datalist attribute to input later, to force the list to be hidden
+      } else {
+        input?.focus();
+      }
+    },
     showCancelButton: true,
     confirmButtonText: 'Save',
     showDenyButton: shouldShowRemoveButton(context, ref, existingName),
@@ -625,6 +641,10 @@ async function openDialog(
         selection.name = selectedOption.name;
       }
       const candidateName = selection.name?.trim() ?? '';
+      if (!selection.selectedId && candidateName === '') {
+        modal.showValidationMessage?.('Signal name cannot be empty.');
+        return false;
+      }
       if (ref.type === 'output' && candidateName !== '' && isWirelessNameUsedByAnotherOutput(context, ref, candidateName)) {
         modal.showValidationMessage?.('Signal name is already used by another output.');
         return false;
