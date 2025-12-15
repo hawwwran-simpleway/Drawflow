@@ -615,6 +615,10 @@ async function openDialog(
     title: ref.type === 'input' ? 'Configure input signal' : 'Configure output signal',
     html: buildDialogHtml(existingName, selectOptions),
     focusConfirm: false,
+    didOpen: () => {
+      const input = document.getElementById('df-wireless-name-input') as HTMLInputElement | null;
+      input?.blur();
+    },
     showCancelButton: true,
     confirmButtonText: 'Save',
     showDenyButton: shouldShowRemoveButton(context, ref, existingName),
