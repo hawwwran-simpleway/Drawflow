@@ -544,6 +544,8 @@ function autoConnectByName(context: Drawflow, ref: DrawflowWirelessPortReference
   });
 }
 
+const listAttributeValue = 'drawflow-wireless-dialog__input-data';
+
 function buildDialogHtml(existingName: string | null, options: DialogSelectOption[]): string {
   const escapedValue = existingName ? escapeHtml(existingName) : '';
   const hasSelectOptions = options.length > 0;
@@ -561,7 +563,7 @@ function buildDialogHtml(existingName: string | null, options: DialogSelectOptio
         })
         .join('')
     : '';
-  const listAttribute = hasSelectOptions ? ' list="drawflow-wireless-dialog__input-data"' : '';
+  
 	
   return `
     <div class="drawflow-wireless-dialog">
@@ -572,11 +574,10 @@ function buildDialogHtml(existingName: string | null, options: DialogSelectOptio
         placeholder="Enter new signal name"
         value="${escapedValue}"
         autocomplete="off"
-        ${listAttribute}
       >
       ${hasSelectOptions
         ? `
-                  <datalist id="drawflow-wireless-dialog__input-data">${selectOptionsData}</datalist>
+                  <datalist id="${listAttributeValue}">${selectOptionsData}</datalist>
           <label class="drawflow-wireless-dialog__label" for="df-wireless-name-select">Connect to existing</label>
                   <select id="df-wireless-name-select" class="swal2-input swal2-select">
                         <option value="">(none)</option>
@@ -624,8 +625,7 @@ async function openDialog(
       const input = document.getElementById('df-wireless-name-input') as HTMLInputElement | null;
       const select = document.getElementById('df-wireless-name-select') as HTMLSelectElement | null;
       if (select) {
-        input?.blur();
-        select.focus();
+        input.setAttribute('list', listAttributeValue); // Set datalist attribute to input later, to force the list to be hidden
       } else {
         input?.focus();
       }
