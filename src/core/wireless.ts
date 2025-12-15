@@ -546,16 +546,22 @@ function autoConnectByName(context: Drawflow, ref: DrawflowWirelessPortReference
 
 function buildDialogHtml(existingName: string | null, options: DialogSelectOption[]): string {
   const escapedValue = existingName ? escapeHtml(existingName) : '';
-  const selectOptions = options
-    .map((option) => {
-      return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
-    })
-    .join('');
-  const selectOptionsData = options
-	.map((option) => {
-		return `<option>${escapeHtml(option.label)}</option>`;
-	})
-	.join('');
+  const hasSelectOptions = options.length > 0;
+  const selectOptions = hasSelectOptions
+    ? options
+        .map((option) => {
+          return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
+        })
+        .join('')
+    : '';
+  const selectOptionsData = hasSelectOptions
+    ? options
+        .map((option) => {
+          return `<option>${escapeHtml(option.label)}</option>`;
+        })
+        .join('')
+    : '';
+  const listAttribute = hasSelectOptions ? ' list="drawflow-wireless-dialog__input-data"' : '';
 	
   return `
     <div class="drawflow-wireless-dialog">
@@ -566,20 +572,19 @@ function buildDialogHtml(existingName: string | null, options: DialogSelectOptio
         placeholder="Enter new signal name"
         value="${escapedValue}"
         autocomplete="off"
-        list="drawflow-wireless-dialog__input-data"
+        ${listAttribute}
       >
-      ${selectOptions
-        ?
-		  `
-		  <datalist id="drawflow-wireless-dialog__input-data">${selectOptionsData}</datalist>
+      ${hasSelectOptions
+        ? `
+                  <datalist id="drawflow-wireless-dialog__input-data">${selectOptionsData}</datalist>
           <label class="drawflow-wireless-dialog__label" for="df-wireless-name-select">Connect to existing</label>
-		  <select id="df-wireless-name-select" class="swal2-input swal2-select">
-			<option value="">(none)</option>
-			${selectOptions}
-		  </select>
-		  `
-		: ""
-	  }
+                  <select id="df-wireless-name-select" class="swal2-input swal2-select">
+                        <option value="">(none)</option>
+                        ${selectOptions}
+                  </select>
+                  `
+        : ''
+      }
     </div>
   `;
 }
@@ -617,7 +622,13 @@ async function openDialog(
     focusConfirm: false,
     didOpen: () => {
       const input = document.getElementById('df-wireless-name-input') as HTMLInputElement | null;
-      input?.blur();
+      const select = document.getElementById('df-wireless-name-select') as HTMLSelectElement | null;
+      if (select) {
+        input?.blur();
+        select.focus();
+      } else {
+        input?.focus();
+      }
     },
     showCancelButton: true,
     confirmButtonText: 'Save',
