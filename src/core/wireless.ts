@@ -625,6 +625,10 @@ async function openDialog(
         selection.name = selectedOption.name;
       }
       const candidateName = selection.name?.trim() ?? '';
+      if (!selection.selectedId && candidateName === '') {
+        modal.showValidationMessage?.('Signal name cannot be empty.');
+        return false;
+      }
       if (ref.type === 'output' && candidateName !== '' && isWirelessNameUsedByAnotherOutput(context, ref, candidateName)) {
         modal.showValidationMessage?.('Signal name is already used by another output.');
         return false;
