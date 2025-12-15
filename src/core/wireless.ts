@@ -565,6 +565,7 @@ function buildDialogHtml(existingName: string | null, options: DialogSelectOptio
         class="swal2-input"
         placeholder="Enter new signal name"
         value="${escapedValue}"
+        autocomplete="off"
         list="drawflow-wireless-dialog__input-data"
       >
       ${selectOptions
