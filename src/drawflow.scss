@@ -23,6 +23,9 @@ $delete-color: var(--drawflow-delete-color, white);
   position: relative;
   user-select: none;
   perspective: 0;
+  transform-origin: 0 0;
+  backface-visibility: hidden;
+  will-change: transform;
 
   .parent-node {
     position: relative;

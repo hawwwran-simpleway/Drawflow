@@ -2,7 +2,12 @@ import type Drawflow from '../Drawflow';
 
 export function applyCanvasTranslation(context: Drawflow, x: number, y: number): void {
   if (context.precanvas) {
-    context.precanvas.style.transform = `translate(${x}px, ${y}px) scale(${context.zoom})`;
+    const pixelRatio = window.devicePixelRatio || 1;
+    const roundedX = Math.round(x * pixelRatio) / pixelRatio;
+    const roundedY = Math.round(y * pixelRatio) / pixelRatio;
+    context.precanvas.style.transform = `translate3d(${roundedX}px, ${roundedY}px, 0) scale(${context.zoom})`;
+    context.container.style.backgroundPosition = `${roundedX}px ${roundedY}px`;
+    return;
   }
 
   context.container.style.backgroundPosition = `${x}px ${y}px`;
