@@ -267,12 +267,18 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
     context.pos_x = e_pos_x;
     context.pos_y = e_pos_y;
 
-    context.ele_selected.style.top = `${context.ele_selected.offsetTop - y}px`;
-    context.ele_selected.style.left = `${context.ele_selected.offsetLeft - x}px`;
+    // Use parseFloat(style.left/top) instead of offsetLeft/offsetTop.
+    // offsetLeft/offsetTop are integer-rounded by the browser; at zoom > 1 the
+    // per-frame delta is < 1px so the accumulated position never advances.
+    const currentLeft = parseFloat(context.ele_selected.style.left);
+    const currentTop = parseFloat(context.ele_selected.style.top);
+
+    context.ele_selected.style.top = `${currentTop - y}px`;
+    context.ele_selected.style.left = `${currentLeft - x}px`;
 
     const nodeId = context.ele_selected.id.slice(5);
-    context.drawflow.drawflow[context.module].data[nodeId].pos_x = context.ele_selected.offsetLeft - x;
-    context.drawflow.drawflow[context.module].data[nodeId].pos_y = context.ele_selected.offsetTop - y;
+    context.drawflow.drawflow[context.module].data[nodeId].pos_x = currentLeft - x;
+    context.drawflow.drawflow[context.module].data[nodeId].pos_y = currentTop - y;
 
     context.updateConnectionNodes(context.ele_selected.id);
   }
@@ -375,6 +381,10 @@ export function dragEnd(context: Drawflow, e: MouseEvent | TouchEvent): void {
   if (context.editor_selected) {
     context.canvas_x = context.canvas_x + (-(context.pos_x - e_pos_x));
     context.canvas_y = context.canvas_y + (-(context.pos_y - e_pos_y));
+    // Snap stored position so canvas_x / zoom stays an integer.
+    // zoom_refresh preserves this invariant: (integer * zoom) / zoom * new_zoom = integer * new_zoom.
+    context.canvas_x = Math.round(context.canvas_x / context.zoom) * context.zoom;
+    context.canvas_y = Math.round(context.canvas_y / context.zoom) * context.zoom;
     context.editor_selected = false;
   }
 
