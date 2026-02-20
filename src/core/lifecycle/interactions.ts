@@ -381,6 +381,10 @@ export function dragEnd(context: Drawflow, e: MouseEvent | TouchEvent): void {
   if (context.editor_selected) {
     context.canvas_x = context.canvas_x + (-(context.pos_x - e_pos_x));
     context.canvas_y = context.canvas_y + (-(context.pos_y - e_pos_y));
+    // Snap stored position so canvas_x / zoom stays an integer.
+    // zoom_refresh preserves this invariant: (integer * zoom) / zoom * new_zoom = integer * new_zoom.
+    context.canvas_x = Math.round(context.canvas_x / context.zoom) * context.zoom;
+    context.canvas_y = Math.round(context.canvas_y / context.zoom) * context.zoom;
     context.editor_selected = false;
   }
 

@@ -1,8 +1,12 @@
 import type Drawflow from '../Drawflow';
 
 export function applyCanvasTranslation(context: Drawflow, x: number, y: number): void {
-  const rx = Math.round(x);
-  const ry = Math.round(y);
+  // Snap to the zoom-unit grid so grid lines stay on whole pixels at every zoom level.
+  // canvas_x / zoom must be an integer; at zoom=1 → 1px steps, zoom=2 → 2px steps, etc.
+  // NOTE: canvas_x is NOT updated here — this is display-only. The stored value is
+  // snapped separately in dragEnd so the cumulative drag formula stays correct.
+  const rx = Math.round(Math.round(x / context.zoom) * context.zoom);
+  const ry = Math.round(Math.round(y / context.zoom) * context.zoom);
 
   if (context.precanvas) {
     context.precanvas.style.transform = `translate(${rx}px, ${ry}px) scale(${context.zoom})`;
