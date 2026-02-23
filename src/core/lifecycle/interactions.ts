@@ -243,6 +243,16 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
     e_pos_y = mouseEvent.clientY;
   }
 
+  // If mouse buttons were released outside the browser window, no mouseup fires.
+  // Detect this on re-entry: any drag is active but no button is held.
+  if (e.type !== 'touchmove') {
+    const isDragging = context.drag || context.drag_point || context.connection || context.editor_selected;
+    if (isDragging && (e as MouseEvent).buttons === 0) {
+      dragEnd(context, e);
+      return;
+    }
+  }
+
   if (context.connection) {
     context.updateConnection(e_pos_x, e_pos_y);
     if (context.pending_wireless && movementExceedsThreshold(context, e_pos_x, e_pos_y)) {
