@@ -8,7 +8,7 @@ export function start(context: Drawflow): void {
   context.precanvas.classList.add('drawflow');
   container.appendChild(context.precanvas);
 
-  container.addEventListener('mouseup', context.dragEnd);
+  document.addEventListener('mouseup', context.dragEnd);
   container.addEventListener('mousemove', context.position);
   container.addEventListener('mousedown', context.click);
 
