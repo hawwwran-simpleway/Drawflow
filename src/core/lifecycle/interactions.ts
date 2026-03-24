@@ -12,6 +12,33 @@ const cancelFrame = hasWindow && typeof window.cancelAnimationFrame === 'functio
   ? window.cancelAnimationFrame.bind(window)
   : (id: number) => clearTimeout(id);
 
+function scheduleConnectionUpdate(context: Drawflow, nodeId: string): void {
+  context._pendingConnectionNodeId = nodeId;
+  if (context._pendingConnectionFrame !== null) {
+    return;
+  }
+  context._pendingConnectionFrame = requestFrame(() => {
+    context._pendingConnectionFrame = null;
+    const id = context._pendingConnectionNodeId;
+    if (id) {
+      context._pendingConnectionNodeId = null;
+      context.updateConnectionNodes(id);
+    }
+  });
+}
+
+function flushConnectionUpdate(context: Drawflow): void {
+  if (context._pendingConnectionFrame !== null) {
+    cancelFrame(context._pendingConnectionFrame);
+    context._pendingConnectionFrame = null;
+  }
+  const id = context._pendingConnectionNodeId;
+  if (id) {
+    context._pendingConnectionNodeId = null;
+    context.updateConnectionNodes(id);
+  }
+}
+
 export function click(context: Drawflow, e: MouseEvent | TouchEvent): void {
   context.dispatch('click', e);
   if (document.activeElement !== context.container) {
@@ -290,7 +317,7 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
     context.drawflow.drawflow[context.module].data[nodeId].pos_x = currentLeft - x;
     context.drawflow.drawflow[context.module].data[nodeId].pos_y = currentTop - y;
 
-    context.updateConnectionNodes(context.ele_selected.id);
+    scheduleConnectionUpdate(context, context.ele_selected.id);
   }
 
   if (context.drag_point && context.ele_selected) {
@@ -345,7 +372,7 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
       pos_y
     };
 
-    context.updateConnectionNodes(outputNodeDomId);
+    scheduleConnectionUpdate(context, outputNodeDomId);
   }
 
   if (e.type === 'touchmove') {
@@ -357,6 +384,7 @@ export function position(context: Drawflow, e: MouseEvent | TouchEvent): void {
 }
 
 export function dragEnd(context: Drawflow, e: MouseEvent | TouchEvent): void {
+  flushConnectionUpdate(context);
   let e_pos_x: number;
   let e_pos_y: number;
   let ele_last: HTMLElement | null = null;
