@@ -113,6 +113,8 @@ declare class Drawflow {
 	autoPanFrame: number | null;
 	autoPanMode: "connection" | "node" | null;
 	pending_wireless: DrawflowWirelessPortReference | null;
+	_pendingConnectionFrame: number | null;
+	_pendingConnectionNodeId: string | null;
 	constructor(container: HTMLElement, render?: any, parent?: any);
 	start: () => void;
 	pointerdown_handler: (ev: PointerEvent) => void;

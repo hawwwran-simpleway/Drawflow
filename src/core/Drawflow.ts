@@ -59,6 +59,8 @@ export default class Drawflow {
   public autoPanFrame: number | null;
   public autoPanMode: 'connection' | 'node' | null;
   public pending_wireless: DrawflowWirelessPortReference | null;
+  public _pendingConnectionFrame: number | null;
+  public _pendingConnectionNodeId: string | null;
 
   constructor(container: HTMLElement, render: any = null, parent: any = null) {
     this.events = {};
@@ -112,6 +114,8 @@ export default class Drawflow {
     this.autoPanFrame = null;
     this.autoPanMode = null;
     this.pending_wireless = null;
+    this._pendingConnectionFrame = null;
+    this._pendingConnectionNodeId = null;
   }
 
   public start = (): void => lifecycle.start(this);
