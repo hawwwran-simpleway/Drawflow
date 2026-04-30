@@ -962,12 +962,19 @@ export function removeSingleConnection(
   const index_out = context.drawflow.drawflow[nodeOneModule!].data[id_output].outputs[output_class].connections.findIndex((item) => {
     return item.node === id_input && item.output === input_class;
   });
-  context.drawflow.drawflow[nodeOneModule!].data[id_output].outputs[output_class].connections.splice(index_out, 1);
+  if (index_out > -1) {
+    context.drawflow.drawflow[nodeOneModule!].data[id_output].outputs[output_class].connections.splice(index_out, 1);
+  }
 
-  const index_in = context.drawflow.drawflow[nodeOneModule!].data[id_input].inputs[input_class].connections.findIndex((item) => {
-    return item.node === id_output && item.input === output_class;
-  });
-  context.drawflow.drawflow[nodeOneModule!].data[id_input].inputs[input_class].connections.splice(index_in, 1);
+  const inputConnections = context.drawflow.drawflow[nodeOneModule!].data[id_input]?.inputs?.[input_class]?.connections;
+  if (inputConnections) {
+    const index_in = inputConnections.findIndex((item) => {
+      return item.node === id_output && item.input === output_class;
+    });
+    if (index_in > -1) {
+      inputConnections.splice(index_in, 1);
+    }
+  }
 
   context.dispatch('connectionRemoved', { output_id: id_output, input_id: id_input, output_class, input_class });
   const outputRef = { nodeId: id_output, portClass: output_class, type: 'output' as const };

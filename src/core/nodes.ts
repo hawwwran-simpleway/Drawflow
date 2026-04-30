@@ -127,7 +127,33 @@ export function addNode(
   return newNodeId;
 }
 
+function sortPortKeysNumeric(prefixLen: number) {
+  return (a: string, b: string) => parseInt(a.slice(prefixLen), 10) - parseInt(b.slice(prefixLen), 10);
+}
+
+function reorderPortsNumeric(portMap: Record<string, any> | undefined, prefixLen: number): Record<string, any> {
+  if (!portMap) return {} as any;
+  const keys = Object.keys(portMap);
+  const sorted = [...keys].sort(sortPortKeysNumeric(prefixLen));
+  // Skip rebuild if already in numeric order
+  let inOrder = true;
+  for (let i = 0; i < keys.length; i += 1) {
+    if (keys[i] !== sorted[i]) { inOrder = false; break; }
+  }
+  if (inOrder) return portMap;
+  const out: Record<string, any> = {};
+  for (const k of sorted) out[k] = portMap[k];
+  return out;
+}
+
 export function addNodeImport(context: Drawflow, dataNode: DrawflowNodeData, precanvas: HTMLElement): void {
+  // Re-establish numeric order for inputs/outputs. A device that re-serializes the design with
+  // sorted keys (e.g. {"input_1": ..., "input_10": ..., "input_2": ...}) would otherwise lock the
+  // editor into lex order, where Object.values()-based renumbers (removeNodeInput) misalign data
+  // with source-side connection records (HW-1877).
+  dataNode.inputs = reorderPortsNumeric(dataNode.inputs as any, 6) as any;
+  dataNode.outputs = reorderPortsNumeric(dataNode.outputs as any, 7) as any;
+
   const parent = document.createElement('div');
   parent.classList.add('parent-node');
 
@@ -351,11 +377,18 @@ export function removeNodeInput(context: Drawflow, id: string, input_class: stri
 
   delete context.drawflow.drawflow[moduleName!].data[id].inputs[input_class];
 
-  const connections = Object.values(context.drawflow.drawflow[moduleName!].data[id].inputs);
+  // Walk remaining inputs in numeric order, not insertion order. If a saved design was loaded
+  // with lex-ordered keys (e.g. input_1, input_10, …, input_2, input_3, …), Object.values()
+  // would otherwise return data in lex order and the index-based renumber below would scramble
+  // the input slots while leaving source-side records unchanged → asymmetric records (HW-1877).
+  const remaining = context.drawflow.drawflow[moduleName!].data[id].inputs;
+  const sortedEntries = Object.keys(remaining)
+    .sort((a, b) => parseInt(a.slice(6), 10) - parseInt(b.slice(6), 10))
+    .map((k) => remaining[k]);
   context.drawflow.drawflow[moduleName!].data[id].inputs = {} as any;
   const input_class_id = parseInt(input_class.slice(6), 10);
   let nodeUpdates: any[] = [];
-  connections.forEach((item, index) => {
+  sortedEntries.forEach((item, index) => {
     item.connections.forEach((conn) => {
       nodeUpdates.push(conn);
     });
@@ -428,11 +461,15 @@ export function removeNodeOutput(context: Drawflow, id: string, output_class: st
 
   delete context.drawflow.drawflow[moduleName!].data[id].outputs[output_class];
 
-  const connections = Object.values(context.drawflow.drawflow[moduleName!].data[id].outputs);
+  // Walk remaining outputs in numeric order — same fix as removeNodeInput. See HW-1877.
+  const remainingOut = context.drawflow.drawflow[moduleName!].data[id].outputs;
+  const sortedEntries = Object.keys(remainingOut)
+    .sort((a, b) => parseInt(a.slice(7), 10) - parseInt(b.slice(7), 10))
+    .map((k) => remainingOut[k]);
   context.drawflow.drawflow[moduleName!].data[id].outputs = {} as any;
   const output_class_id = parseInt(output_class.slice(7), 10);
   let nodeUpdates: any[] = [];
-  connections.forEach((item, index) => {
+  sortedEntries.forEach((item, index) => {
     item.connections.forEach((conn) => {
       nodeUpdates.push({ node: conn.node, output: conn.output });
     });
